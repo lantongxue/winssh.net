@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"resty.dev/v3"
@@ -16,6 +17,48 @@ var (
 	GITHUB_REPO      string = "winssh"
 )
 
+type SimpleCache struct {
+	data map[string]*SimpleCacheData
+}
+
+type SimpleCacheData struct {
+	buff []byte
+	ttl  int
+}
+
+func NewCache() *SimpleCache {
+	return &SimpleCache{
+		data: make(map[string]*SimpleCacheData),
+	}
+}
+
+func (ctx *SimpleCache) SetString(key, value string, ttl int) {
+	ctx.data[key] = &SimpleCacheData{
+		buff: []byte(value),
+		ttl:  time.Now().Second() + ttl,
+	}
+}
+
+func (ctx *SimpleCache) GetString(key string) string {
+	data := ctx.get(key)
+	if data == nil {
+		return ""
+	}
+	return string(data.buff)
+}
+
+func (ctx *SimpleCache) get(key string) *SimpleCacheData {
+	val, ok := ctx.data[key]
+	if ok {
+		if val.ttl > time.Now().Second() {
+			return val
+		}
+		delete(ctx.data, key)
+		return nil
+	}
+	return nil
+}
+
 type GithubClient struct {
 	request    *resty.Request
 	baseUrl    string
@@ -24,6 +67,7 @@ type GithubClient struct {
 	repo       string
 	apiVersion string
 	endPoint   string
+	cache      *SimpleCache
 }
 
 func NewGtihubClient(apiKey, owner, repo string) *GithubClient {
@@ -33,6 +77,7 @@ func NewGtihubClient(apiKey, owner, repo string) *GithubClient {
 		repo:       repo,
 		apiVersion: "2026-03-10",
 		endPoint:   "https://api.github.com",
+		cache:      NewCache(),
 	}
 }
 
@@ -46,18 +91,36 @@ func (ctx *GithubClient) api(path string) string {
 }
 
 func (ctx *GithubClient) Releases() string {
-	res, _ := ctx.httpClient().Get(ctx.api("/releases"))
-	return res.String()
+	api := "/releases"
+	s := ctx.cache.GetString(api)
+	if s == "" {
+		res, _ := ctx.httpClient().Get(ctx.api(api))
+		s = res.String()
+		ctx.cache.SetString(api, s, int(time.Hour)*12)
+	}
+	return s
 }
 
 func (ctx *GithubClient) Latest() string {
-	res, _ := ctx.httpClient().Get(ctx.api("/releases/latest"))
-	return res.String()
+	api := "/releases/latest"
+	s := ctx.cache.GetString(api)
+	if s == "" {
+		res, _ := ctx.httpClient().Get(ctx.api(api))
+		s = res.String()
+		ctx.cache.SetString(api, s, int(time.Hour)*12)
+	}
+	return s
 }
 
 func (ctx *GithubClient) Repo() string {
-	res, _ := ctx.httpClient().Get(ctx.api(""))
-	return res.String()
+	api := "repo"
+	s := ctx.cache.GetString("repo")
+	if s == "" {
+		res, _ := ctx.httpClient().Get(ctx.api(""))
+		s = res.String()
+		ctx.cache.SetString(api, s, int(time.Hour)*12)
+	}
+	return s
 }
 
 func main() {
