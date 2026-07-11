@@ -26,7 +26,7 @@ export function Download() {
   const [activeModal, setActiveModal] = useState<'macos' | 'linux' | null>(null)
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/lantongxue/winssh/releases/latest')
+    fetch('/api/v1/releases/latest')
       .then((res) => res.json())
       .then((data) => {
         if (data && Array.isArray(data.assets)) {

@@ -18,7 +18,7 @@ export function Navbar() {
   }, [])
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/lantongxue/winssh')
+    fetch('/api/v1/repo')
       .then((res) => res.json())
       .then((data) => {
         if (typeof data.stargazers_count === 'number') {

@@ -153,7 +153,7 @@ export function Changelog() {
   const [visibleCount, setVisibleCount] = useState(3)
 
   useEffect(() => {
-    fetch('https://api.github.com/repos/lantongxue/winssh/releases')
+    fetch('/api/v1/releases')
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
