@@ -1,0 +1,36 @@
+name: EdgeOne Pages Deploy
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          npm install
+
+      - name: Build web site
+        run: npm run build
+
+      - name: Deploy to EdgeOne Pages
+        shell: bash
+        env:
+          EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+        run: |
+          npx edgeone pages deploy dist -n winssh-web -t $EDGEONE_API_TOKEN
