@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import {
   Layers,
   Cpu,
@@ -14,30 +14,27 @@ import { useLanguage } from '../i18n/LanguageContext'
 
 export function Architecture() {
   const { t } = useLanguage()
+  const reduceMotion = useReducedMotion()
 
   const icons = [
-    <Layers className="w-6 h-6 text-cyan-400" />,
-    <Terminal className="w-6 h-6 text-emerald-400" />,
-    <Zap className="w-6 h-6 text-blue-400" />,
-    <ShieldCheck className="w-6 h-6 text-purple-400" />
+    <Layers className="w-5 h-5 text-cyan-400" />,
+    <Terminal className="w-5 h-5 text-cyan-400" />,
+    <Zap className="w-5 h-5 text-cyan-400" />,
+    <ShieldCheck className="w-5 h-5 text-cyan-400" />
   ]
 
   return (
-    <section id="architecture" className="py-28 px-4 sm:px-6 md:px-8 relative z-10 overflow-hidden">
+    <section id="architecture" className="py-24 px-4 sm:px-6 md:px-8 relative z-10 overflow-hidden">
       {/* Glow background */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-        <div className="w-[900px] h-[350px] bg-indigo-600/10 blur-[160px] rounded-full mix-blend-screen" />
+        <div className="w-[900px] h-[350px] bg-cyan-600/10 blur-[160px] rounded-full mix-blend-screen" />
       </div>
 
       <div className="max-w-7xl mx-auto relative z-10">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-medium tracking-wide uppercase mb-4">
-            <Binary className="w-3.5 h-3.5 text-indigo-400" />
-            <span>{t.architecture.badge}</span>
-          </div>
           <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-4">
             {t.architecture.titleLevel1} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
               {t.architecture.titleLevel2}
             </span>
           </h2>
@@ -51,14 +48,14 @@ export function Architecture() {
           {t.architecture.cards.map((card, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 30 }}
+              initial={reduceMotion ? false : { opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.6, delay: i * 0.15 }}
-              className="p-8 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group relative overflow-hidden flex flex-col justify-between"
+              transition={{ duration: 0.6, delay: i * 0.1 }}
+              className="p-8 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
             >
               <div>
-                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 border border-white/10 group-hover:scale-110 transition-transform">
+                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 flex items-center justify-center mb-6 border border-cyan-500/30 group-hover:scale-105 transition-transform">
                   {icons[i]}
                 </div>
                 <h3 className="text-xl font-display font-semibold mb-3 text-white">

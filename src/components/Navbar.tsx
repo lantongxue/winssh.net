@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
 import { Github, Star, Zap } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { LanguageToggle } from './LanguageToggle'
@@ -8,14 +8,13 @@ export function Navbar() {
   const { t } = useLanguage()
   const [stars, setStars] = useState<number | null>(null)
   const [scrolled, setScrolled] = useState(false)
+  const reduceMotion = useReducedMotion()
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  const { scrollY } = useScroll()
+  useMotionValueEvent(scrollY, 'change', (latest) => {
+    const isPast = latest > 20
+    setScrolled((prev) => (prev !== isPast ? isPast : prev))
+  })
 
   useEffect(() => {
     fetch('/api/v1/repo')
@@ -30,12 +29,12 @@ export function Navbar() {
 
   return (
     <motion.nav
-      initial={{ y: -20, opacity: 0 }}
+      initial={reduceMotion ? false : { y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 py-3.5 transition-all duration-300 ${
+      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 transition-all duration-300 ${
         scrolled
-          ? 'bg-black/80 backdrop-blur-xl border-b border-white/10 shadow-2xl py-3.5'
+          ? 'bg-black/85 backdrop-blur-xl border-b border-white/10 shadow-2xl py-3.5'
           : 'bg-transparent py-5'
       }`}
     >

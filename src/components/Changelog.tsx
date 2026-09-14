@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useLanguage } from '../i18n/LanguageContext'
 import { Circle, GitCommit, Loader2, ChevronDown, ChevronUp, ExternalLink, Sparkles, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -145,6 +145,7 @@ function ReleaseItem({
 
 export function Changelog() {
   const { t, lang } = useLanguage()
+  const reduceMotion = useReducedMotion()
   const [releases, setReleases] = useState<Release[]>([])
   const [loading, setLoading] = useState(true)
   const [visibleCount, setVisibleCount] = useState(4)
@@ -190,30 +191,26 @@ export function Changelog() {
         }))
 
   return (
-    <section id="changelog" className="py-28 px-4 sm:px-6 md:px-8 relative z-10 border-t border-white/5">
+    <section id="changelog" className="py-24 px-4 sm:px-6 md:px-8 relative z-10 border-t border-white/5">
       <div className="max-w-4xl mx-auto relative z-10">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-300 text-xs font-medium tracking-wide uppercase mb-4">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-            <span>{t.changelogSection.badge}</span>
-          </div>
           <motion.h2
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8 }}
+            transition={{ duration: 0.7 }}
             className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-4"
           >
             {t.changelogSection.titleLevel1}{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
               {t.changelogSection.titleLevel2}
             </span>
           </motion.h2>
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.8, delay: 0.1 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
             className="text-neutral-400 text-base md:text-lg font-light max-w-xl mx-auto"
           >
             {t.changelogSection.desc}

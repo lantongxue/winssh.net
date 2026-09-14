@@ -81,9 +81,13 @@ export function PrototypeShowcase() {
   // View Mode: 'interactive' or 'screenshot'
   const [viewMode, setViewMode] = useState<'interactive' | 'screenshot'>('interactive')
 
-  // Panels states (matching user screenshot: both SFTP and Monitor open by default)
-  const [isSftpOpen, setIsSftpOpen] = useState(true)
-  const [isMonitorOpen, setIsMonitorOpen] = useState(true)
+  // Panels states (adaptive default based on screen width)
+  const [isSftpOpen, setIsSftpOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  )
+  const [isMonitorOpen, setIsMonitorOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1280 : true
+  )
   const [syncDirActive, setSyncDirActive] = useState(false)
   const [activeTab, setActiveTab] = useState<'64.90.***.***' | 'welcome'>('64.90.***.***')
   const [filterTab, setFilterTab] = useState<'all' | 'recent' | 'prod'>('all')
@@ -319,19 +323,15 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
     <section id="showcase" className="py-24 px-2 sm:px-4 md:px-8 relative z-10 overflow-hidden">
       {/* Background Ambient Glow */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-        <div className="w-[1250px] h-[550px] bg-gradient-to-r from-blue-600/10 via-cyan-500/10 to-indigo-600/10 blur-[180px] rounded-full mix-blend-screen" />
+        <div className="w-[1250px] h-[550px] bg-cyan-600/10 blur-[180px] rounded-full mix-blend-screen" />
       </div>
 
       <div className="max-w-[1600px] mx-auto relative z-10">
         {/* Section Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium tracking-wide uppercase mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>真实界面 · 监控面板与全景联动</span>
-          </div>
           <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-3">
             1:1 还原真实软件设计， <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
               毫秒级全景监控与原生极速交互。
             </span>
           </h2>
@@ -421,7 +421,7 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
             </div>
 
             {/* 2. Main Desktop Viewport: Activity Bar + Host Sidebar + Main Body */}
-            <div className="flex h-[740px] overflow-hidden bg-[#0c0c0e]">
+            <div className="flex h-[580px] sm:h-[660px] lg:h-[740px] overflow-hidden bg-[#0c0c0e]">
               {/* Activity Bar (最左侧窄栏) */}
               <div className="w-11 bg-[#151518] border-r border-[#222226] flex flex-col items-center py-3 justify-between shrink-0 z-20">
                 <div className="flex flex-col items-center gap-4 w-full">
@@ -465,8 +465,8 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
                 </div>
               </div>
 
-              {/* Host Sidebar (主机侧边栏) */}
-              <div className="w-64 bg-[#151518] border-r border-[#222226] flex flex-col shrink-0">
+              {/* Host Sidebar (主机侧边栏, 移动端自动折叠保障终端操作空间) */}
+              <div className="hidden md:flex w-52 lg:w-64 bg-[#151518] border-r border-[#222226] flex-col shrink-0">
                 {/* Header */}
                 <div className="h-10 px-3 border-b border-[#222226] flex items-center justify-between">
                   <span className="text-xs font-semibold text-neutral-200">主机</span>
@@ -1183,7 +1183,13 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
                 {isMonitorOpen && (
                   <motion.div
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 330, opacity: 1 }}
+                    animate={{
+                      width:
+                        typeof window !== 'undefined' && window.innerWidth < 640
+                          ? Math.max(260, window.innerWidth - 64)
+                          : 330,
+                      opacity: 1
+                    }}
                     exit={{ width: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     className="bg-[#151518] border-l border-[#222226] flex flex-col select-none overflow-hidden shrink-0 z-20"

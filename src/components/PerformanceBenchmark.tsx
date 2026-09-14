@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import {
   Zap,
   Cpu,
@@ -16,9 +16,10 @@ import { useLanguage } from '../i18n/LanguageContext'
 
 export function PerformanceBenchmark() {
   const { t } = useLanguage()
+  const reduceMotion = useReducedMotion()
 
   return (
-    <section id="benchmarks" className="py-28 px-4 sm:px-6 md:px-8 relative z-10 overflow-hidden">
+    <section id="benchmarks" className="py-24 px-4 sm:px-6 md:px-8 relative z-10 overflow-hidden">
       {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
         <div className="w-[850px] h-[400px] bg-cyan-600/10 blur-[150px] rounded-full mix-blend-screen" />
@@ -27,13 +28,13 @@ export function PerformanceBenchmark() {
       <div className="max-w-7xl mx-auto relative z-10">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-medium tracking-wide uppercase mb-4">
-            <Gauge className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium tracking-wide uppercase mb-4">
+            <Gauge className="w-3.5 h-3.5 text-cyan-400" />
             <span>{t.benchmarks.badge}</span>
           </div>
           <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-4">
             {t.benchmarks.titleLevel1} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
               {t.benchmarks.titleLevel2}
             </span>
           </h2>
@@ -92,20 +93,20 @@ export function PerformanceBenchmark() {
 
           {/* Stat 3: Startup Speed */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="p-6 rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 relative overflow-hidden group hover:bg-white/10 transition-all"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all" />
-            <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center mb-4 border border-purple-500/30">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center mb-4 border border-cyan-500/30">
               <Clock className="w-5 h-5" />
             </div>
             <div className="text-3xl sm:text-4xl font-display font-bold text-white mb-1">
-              &lt; 85 <span className="text-purple-400 text-xl font-mono">ms</span>
+              &lt; 85 <span className="text-cyan-400 text-xl font-mono">ms</span>
             </div>
-            <div className="text-xs font-mono text-purple-300 uppercase tracking-wider mb-2">
+            <div className="text-xs font-mono text-cyan-300 uppercase tracking-wider mb-2">
               Instant Cold Start
             </div>
             <p className="text-neutral-400 text-xs font-light leading-relaxed">
@@ -115,20 +116,20 @@ export function PerformanceBenchmark() {
 
           {/* Stat 4: Stream Tailing */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.3 }}
             className="p-6 rounded-2xl sm:rounded-3xl bg-white/5 border border-white/10 relative overflow-hidden group hover:bg-white/10 transition-all"
           >
-            <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all" />
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center mb-4 border border-amber-500/30">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/10 rounded-full blur-2xl group-hover:bg-cyan-500/20 transition-all" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center mb-4 border border-cyan-500/30">
               <Flame className="w-5 h-5" />
             </div>
             <div className="text-3xl sm:text-4xl font-display font-bold text-white mb-1">
-              100k <span className="text-amber-400 text-lg font-mono">lines/s</span>
+              100k <span className="text-cyan-400 text-lg font-mono">lines/s</span>
             </div>
-            <div className="text-xs font-mono text-amber-300 uppercase tracking-wider mb-2">
+            <div className="text-xs font-mono text-cyan-300 uppercase tracking-wider mb-2">
               Alacritty VT Core
             </div>
             <p className="text-neutral-400 text-xs font-light leading-relaxed">

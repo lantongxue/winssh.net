@@ -19,7 +19,7 @@ import { LanguageProvider } from './i18n/LanguageContext'
 export default function App() {
   return (
     <LanguageProvider>
-      <div className="min-h-screen bg-[#030303] text-white selection:bg-cyan-500/20 selection:text-white font-sans antialiased selection:bg-cyan-500/20">
+      <div className="min-h-[100dvh] bg-[#030303] text-white selection:bg-cyan-500/20 selection:text-white font-sans antialiased">
         <Navbar />
         <main>
           <Hero />
