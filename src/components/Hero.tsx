@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { Download, Sparkles, ChevronRight, Zap } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { useLanguage } from '../i18n/LanguageContext'
 
 export function Hero() {
@@ -24,7 +24,7 @@ export function Hero() {
 
       {/* Main Hero Stack (Disciplined: Max 4 text elements) */}
       <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 flex flex-col items-center text-center">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col items-center text-center">
           {/* Element 1: Eyebrow Badge */}
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 12 }}
@@ -38,21 +38,20 @@ export function Hero() {
             </span>
           </motion.div>
 
-          {/* Element 2: Headline (Strictly max 2 lines on desktop) */}
+          {/* Element 2: Headline (Strictly max 2 lines) */}
           <motion.h1
             initial={reduceMotion ? false : { opacity: 0, y: 25 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="font-display text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tighter leading-[1.06]"
+            className="font-display text-3xl sm:text-5xl md:text-6xl lg:text-[4rem] xl:text-[4.5rem] font-extrabold tracking-tight leading-[1.15]"
           >
-            <span className="text-white">
+            <span className="text-white block sm:whitespace-nowrap">
               {t.hero.title[0]}
             </span>
-            <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400 inline-block sm:whitespace-nowrap">
               {t.hero.title[1]}
+              <span className={`inline-block ml-2 md:ml-3 w-2 md:w-3 lg:w-3.5 h-[0.72em] bg-cyan-400 shadow-[0_0_16px_rgba(6,182,212,0.8)] rounded-[1px] align-baseline ${reduceMotion ? '' : 'animate-pulse'}`} />
             </span>
-            <span className={`inline-block ml-2 md:ml-3 w-2.5 md:w-4 lg:w-5 h-[0.7em] bg-cyan-400 shadow-[0_0_16px_rgba(6,182,212,0.8)] rounded-[1px] align-baseline ${reduceMotion ? '' : 'animate-pulse'}`} />
           </motion.h1>
 
           {/* Element 3: Subtext (Concise < 20 words) */}
@@ -65,12 +64,12 @@ export function Hero() {
             {t.hero.desc}
           </motion.p>
 
-          {/* Element 4: CTAs (1 primary + max 1 secondary, no wrapping) */}
+          {/* Element 4: CTA */}
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-8 flex flex-wrap items-center justify-center gap-3.5"
+            className="mt-8 flex items-center justify-center"
           >
             <a
               href="#download"
@@ -79,15 +78,6 @@ export function Hero() {
               <Download className="w-4 h-4" />
               <span>{t.hero.ctaDownload}</span>
               <span className="text-[11px] px-1.5 py-0.5 bg-black/15 rounded font-mono font-bold">v3.0</span>
-            </a>
-
-            <a
-              href="#showcase"
-              className="flex items-center gap-2 px-5 py-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 text-white font-medium text-sm backdrop-blur-md transition-all hover:-translate-y-0.5"
-            >
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>{t.hero.ctaDemo}</span>
-              <ChevronRight className="w-4 h-4 text-neutral-400" />
             </a>
           </motion.div>
         </div>

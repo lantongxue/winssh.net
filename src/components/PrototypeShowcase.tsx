@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
-  Terminal as TerminalIcon,
   Server,
   Zap,
   Sparkles,
@@ -77,9 +76,6 @@ interface TerminalLine {
 
 export function PrototypeShowcase() {
   const { t } = useLanguage()
-
-  // View Mode: 'interactive' or 'screenshot'
-  const [viewMode, setViewMode] = useState<'interactive' | 'screenshot'>('interactive')
 
   // Panels states (adaptive default based on screen width)
   const [isSftpOpen, setIsSftpOpen] = useState(() =>
@@ -327,61 +323,8 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
       </div>
 
       <div className="max-w-[1600px] mx-auto relative z-10">
-        {/* Section Header */}
-        <div className="text-center mb-8">
-          <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-3">
-            1:1 还原真实软件设计， <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
-              毫秒级全景监控与原生极速交互。
-            </span>
-          </h2>
-          <p className="text-neutral-400 text-sm sm:text-base max-w-2xl mx-auto font-light">
-            完美复刻真实软件中的右侧监控面板、底部联动 SFTP 与终端布局。您可以点击顶栏「资源监控」或「SFTP 面板」开关对应视图，亦可点击指标 / 进程 / 诊断进行多维巡检。
-          </p>
-
-          {/* View Mode Switcher */}
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <div className="inline-flex p-1 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-              <button
-                onClick={() => setViewMode('interactive')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === 'interactive'
-                    ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] font-semibold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <TerminalIcon className="w-3.5 h-3.5" />
-                <span>可交互原生工作台</span>
-              </button>
-              <button
-                onClick={() => setViewMode('screenshot')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  viewMode === 'screenshot'
-                    ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] font-semibold'
-                    : 'text-neutral-400 hover:text-white'
-                }`}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>实机全景截图 4K (带监控面板)</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 4K Screenshot View */}
-        {viewMode === 'screenshot' && (
-          <div className="rounded-2xl sm:rounded-3xl border border-white/15 overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.9)] bg-black">
-            <img
-              src="/winssh-pro-real-ui-monitor.png"
-              alt="WinSSH Pro Desktop App Real Interface with Monitor Panel"
-              className="w-full h-auto block object-cover"
-            />
-          </div>
-        )}
-
         {/* 100% Faithful Interactive Desktop Prototype */}
-        {viewMode === 'interactive' && (
-          <div className="relative rounded-2xl sm:rounded-3xl border border-[#2b2b30] bg-[#121215] shadow-[0_30px_90px_rgba(0,0,0,0.85)] overflow-hidden font-sans select-none">
+        <div className="relative rounded-2xl sm:rounded-3xl border border-[#2b2b30] bg-[#121215] shadow-[0_30px_90px_rgba(0,0,0,0.85)] overflow-hidden font-sans select-none">
             {/* 1. Window Top Chrome / Title Bar */}
             <div className="h-10 bg-[#18181c] border-b border-[#25252a] flex items-center justify-between px-4 select-none">
               {/* Traffic Lights & App Title */}
@@ -1548,7 +1491,6 @@ MiB Mem :  15824.2 total,   8420.1 free,   4210.5 used,   3193.6 buff/cache`
 
             </div>
           </div>
-        )}
       </div>
     </section>
   )
