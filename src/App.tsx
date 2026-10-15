@@ -3,31 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Navbar } from './components/Navbar'
-import { Hero } from './components/Hero'
-import { PrototypeShowcase } from './components/PrototypeShowcase'
-import { PerformanceBenchmark } from './components/PerformanceBenchmark'
-import { Features } from './components/Features'
-import { Architecture } from './components/Architecture'
-import { CrossPlatform } from './components/CrossPlatform'
-import { Download } from './components/Download'
+import { AllInOne } from './components/AllInOne'
 import { Changelog } from './components/Changelog'
+import { Download } from './components/Download'
+import { Features } from './components/Features'
 import { Footer } from './components/Footer'
+import { Hero } from './components/Hero'
+import { MoreFeatures } from './components/MoreFeatures'
+import { Navbar } from './components/Navbar'
+import { Performance } from './components/Performance'
 import { ScrollToTop } from './components/ScrollToTop'
 import { LanguageProvider } from './i18n/LanguageContext'
 
 export default function App() {
   return (
     <LanguageProvider>
-      <div className="min-h-[100dvh] bg-[#030303] text-white selection:bg-cyan-500/20 selection:text-white font-sans antialiased">
+      <div className="min-h-dvh overflow-x-clip">
         <Navbar />
         <main>
           <Hero />
-          <PrototypeShowcase />
-          <PerformanceBenchmark />
+          <AllInOne />
+          <Performance />
           <Features />
-          <Architecture />
-          <CrossPlatform />
+          <MoreFeatures />
           <Download />
           <Changelog />
         </main>

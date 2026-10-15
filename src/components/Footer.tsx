@@ -1,108 +1,87 @@
+import { Github } from 'lucide-react'
+import icon from '../assets/brand/icon-256.webp'
+import { fmt } from '../i18n/translations'
 import { useLanguage } from '../i18n/LanguageContext'
-import { Github, Zap, Terminal, Heart } from 'lucide-react'
+import { ISSUES_URL, RELEASES_URL, REPO_URL } from '../lib/github'
 
 export function Footer() {
-  const { t } = useLanguage()
-  const year = new Date().getFullYear()
+  const { t, lang } = useLanguage()
+
+  const groups = [
+    {
+      title: t.footer.product,
+      links: [
+        { label: t.nav.connections, href: '#connections' },
+        { label: t.nav.performance, href: '#performance' },
+        { label: t.nav.features, href: '#features' },
+        { label: t.nav.download, href: '#download' },
+        { label: t.nav.changelog, href: '#changelog' }
+      ]
+    },
+    {
+      title: t.footer.community,
+      links: [
+        { label: t.footer.repo, href: REPO_URL, external: true },
+        { label: t.footer.releases, href: RELEASES_URL, external: true },
+        { label: t.footer.issues, href: ISSUES_URL, external: true }
+      ]
+    }
+  ]
 
   return (
-    <footer className="border-t border-white/10 bg-[#08080a] backdrop-blur-lg pt-20 pb-12 px-4 sm:px-6 md:px-8 mt-20 relative z-10">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-12">
-        <div className="max-w-sm">
-          <div className="flex items-center gap-2.5 mb-4">
-            <img src="/logo.png" alt="WinSSH Pro Logo" className="w-7 h-7 object-contain" />
-            <div className="flex items-center gap-1.5 font-display">
-              <span className="font-bold text-lg tracking-tight text-white">WinSSH</span>
-              <span className="px-1.5 py-0.2 text-[9px] font-mono font-bold uppercase rounded bg-cyan-400 text-black">
-                PRO
-              </span>
+    <footer className="relative border-t border-white/[0.06]">
+      <div className="relative mx-auto max-w-7xl overflow-hidden px-5 pb-10 pt-20 sm:px-8">
+        <div className="grid grid-cols-2 gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+          <div className="col-span-2 md:col-span-1">
+            <a href="#top" className="flex items-center gap-3">
+              <img src={icon} alt="" width={36} height={36} className="size-9 rounded-[9px]" />
+              <span className="text-lg font-semibold tracking-tight text-white">WinSSH Pro</span>
+            </a>
+            <p
+              className={
+                lang === 'zh'
+                  ? 'mt-6 font-wordmark text-3xl font-black tracking-[0.12em] text-gradient-ceramic'
+                  : 'mt-6 text-2xl font-semibold tracking-tight text-gradient-ceramic'
+              }
+            >
+              {t.footer.tagline}
+            </p>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-500">{t.footer.desc}</p>
+          </div>
+
+          {groups.map((group) => (
+            <div key={group.title}>
+              <h3 className="text-sm font-medium text-slate-300">{group.title}</h3>
+              <ul className="mt-5 space-y-3">
+                {group.links.map((link) => (
+                  <li key={link.href}>
+                    <a
+                      href={link.href}
+                      {...('external' in link
+                        ? { target: '_blank', rel: 'noopener noreferrer' }
+                        : {})}
+                      className="text-sm text-slate-500 transition-colors hover:text-white"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-          <p className="text-neutral-400 text-xs sm:text-sm font-light leading-relaxed mb-6">
-            {t.footer.desc}
-          </p>
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-            <Zap className="w-3.5 h-3.5" />
-            <span>Rust + GPUI 120 FPS Architecture</span>
-          </div>
+          ))}
         </div>
 
-        <div className="flex flex-wrap gap-12 sm:gap-20">
-          <div className="flex flex-col gap-3">
-            <h4 className="text-white text-xs font-mono uppercase tracking-wider font-semibold mb-1">
-              {t.footer.product}
-            </h4>
-            <a
-              href="#showcase"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.demo}
-            </a>
-            <a
-              href="#benchmarks"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.benchmarks}
-            </a>
-            <a
-              href="#download"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.dl}
-            </a>
-            <a
-              href="#changelog"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.changelog}
-            </a>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h4 className="text-white text-xs font-mono uppercase tracking-wider font-semibold mb-1">
-              {t.footer.resources}
-            </h4>
-            <a
-              href="https://github.com/lantongxue/winssh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors flex items-center gap-1"
-            >
-              <span>{t.footer.github}</span>
-            </a>
-            <a
-              href="https://github.com/lantongxue/winssh/discussions"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.community}
-            </a>
-            <a
-              href="https://github.com/lantongxue/winssh#readme"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-neutral-400 text-xs hover:text-cyan-400 transition-colors"
-            >
-              {t.footer.docs}
-            </a>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h4 className="text-white text-xs font-mono uppercase tracking-wider font-semibold mb-1">
-              {t.footer.legal}
-            </h4>
-            <span className="text-neutral-500 text-xs">MIT License</span>
-            <span className="text-neutral-500 text-xs">Open Source & Free</span>
-            <span className="text-neutral-500 text-xs">Zero Telemetry</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto mt-16 pt-8 border-t border-white/10 text-center md:text-left flex flex-col md:flex-row justify-between items-center gap-4 text-xs font-mono text-neutral-500">
-        <p>{t.footer.copyright.replace('{year}', year.toString())}</p>
-        <div className="flex items-center gap-2 text-cyan-400">
-          <span>{t.footer.slogan}</span>
+        <div className="mt-16 flex flex-col-reverse items-start justify-between gap-4 border-t border-white/[0.06] pt-8 text-xs text-slate-600 sm:flex-row sm:items-center">
+          <p>{fmt(t.footer.copyright, { year: new Date().getFullYear() })}</p>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub"
+            className="text-slate-500 transition-colors hover:text-white"
+          >
+            <Github className="size-4" />
+          </a>
         </div>
       </div>
     </footer>

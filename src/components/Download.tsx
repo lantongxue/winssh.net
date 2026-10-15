@@ -1,334 +1,266 @@
-import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
-import {
-  Download as DownloadIcon,
-  Command,
-  Monitor,
-  Terminal,
-  Loader2,
-  X,
-  Apple,
-  Cpu,
-  Package,
-  ShieldCheck,
-  CheckCircle2,
-  ExternalLink,
-  Zap
-} from 'lucide-react'
+import { ArrowDownToLine, ArrowUpRight, Github, Info, Loader2, Rocket } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { fmt } from '../i18n/translations'
 import { useLanguage } from '../i18n/LanguageContext'
-import { useState, useEffect } from 'react'
+import {
+  PLATFORM_NAMES,
+  RELEASES_URL,
+  REPO_URL,
+  buildsOf,
+  formatBytes,
+  latestRelease,
+  recommendedBuild,
+  useDetectedSystem,
+  useReleases,
+  type Build,
+  type Platform,
+  type Release
+} from '../lib/github'
+import { OsIcon, Reveal, SectionHeading } from './ui'
 
-interface Asset {
-  name: string
-  browser_download_url: string
+const PLATFORMS: Platform[] = ['windows', 'macos', 'linux']
+
+const KIND_ORDER = ['installer', 'dmg', 'deb', 'rpm', 'portable', 'archive']
+
+function useLabels() {
+  const { t } = useLanguage()
+  const archLabel = (build: Build) =>
+    build.platform === 'macos'
+      ? build.arch === 'arm64'
+        ? t.download.arch.macArm64
+        : t.download.arch.macX64
+      : t.download.arch[build.arch]
+  const kindLabel = (build: Build) => t.download.kinds[build.kind]
+  return { archLabel, kindLabel }
+}
+
+function formatDate(iso: string | null, lang: string) {
+  if (!iso) return ''
+  return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date(iso))
+}
+
+function Recommended({ build }: { build: Build }) {
+  const { t } = useLanguage()
+  const { archLabel, kindLabel } = useLabels()
+  return (
+    <div className="relative overflow-hidden rounded-3xl border border-sky-400/20 bg-gradient-to-br from-sky-500/[0.12] via-blue-600/[0.06] to-violet-600/[0.1] p-6 sm:p-8">
+      <div
+        aria-hidden
+        className="absolute -right-20 -top-24 size-72 rounded-full bg-sky-400/20 blur-3xl"
+      />
+      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-5">
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+            <OsIcon platform={build.platform} className="size-7 text-white" />
+          </span>
+          <div>
+            <p className="text-xs font-medium text-sky-300">{t.download.recommended}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight text-white">
+              {PLATFORM_NAMES[build.platform]} · {archLabel(build)}
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              {kindLabel(build)} · {formatBytes(build.asset.size)}
+            </p>
+          </div>
+        </div>
+        <a
+          href={build.asset.browser_download_url}
+          className="inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-full bg-white px-7 text-sm font-semibold text-ink-950 shadow-[0_10px_40px_-10px_rgba(56,189,248,0.7)] transition-[background-color,transform] hover:-translate-y-px hover:bg-sky-50"
+        >
+          <ArrowDownToLine className="size-4" />
+          {t.nav.downloadCta}
+        </a>
+      </div>
+      {build.platform === 'macos' && (
+        <p className="relative mt-6 flex items-start gap-2 border-t border-white/[0.08] pt-5 text-xs leading-relaxed text-slate-400">
+          <Info className="mt-px size-3.5 shrink-0" />
+          {t.download.macTip}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function PlatformCard({ platform, builds }: { platform: Platform; builds: Build[] }) {
+  const { t } = useLanguage()
+  const { archLabel, kindLabel } = useLabels()
+  // Mac 先列 Apple 芯片，其余平台先列 x64；同架构内按安装方式排序
+  const primaryArch = platform === 'macos' ? 'arm64' : 'x64'
+  const archRank = (build: Build) => (build.arch === primaryArch ? 0 : 1)
+  const sorted = [...builds].sort(
+    (a, b) => archRank(a) - archRank(b) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind)
+  )
+  return (
+    <div className="flex h-full flex-col rounded-3xl border border-white/[0.07] bg-white/[0.02] p-6">
+      <div className="flex items-center gap-3">
+        <OsIcon platform={platform} className="size-5 text-slate-200" />
+        <h3 className="text-lg font-semibold text-white">{PLATFORM_NAMES[platform]}</h3>
+      </div>
+      <p className="mt-1.5 text-xs text-slate-500">{t.download.requirements[platform]}</p>
+      <ul className="mt-5 flex-1 space-y-1">
+        {sorted.length === 0 && (
+          <li className="py-2 text-sm text-slate-500">{t.download.noAsset}</li>
+        )}
+        {sorted.map((build) => (
+          <li key={build.asset.name}>
+            <a
+              href={build.asset.browser_download_url}
+              title={build.asset.name}
+              className="group -mx-3 flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.05]"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-slate-200">
+                  {kindLabel(build)}
+                  <span className="ml-2 text-xs text-slate-500">{archLabel(build)}</span>
+                </span>
+              </span>
+              <span className="font-mono text-xs text-slate-500">
+                {formatBytes(build.asset.size)}
+              </span>
+              <ArrowDownToLine className="size-4 text-slate-500 transition-colors group-hover:text-sky-300" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ReleaseDownloads({ release }: { release: Release }) {
+  const { t, lang } = useLanguage()
+  const system = useDetectedSystem()
+  const builds = buildsOf(release)
+  const recommended = system ? recommendedBuild(builds, system.platform, system.arch) : null
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-slate-400">
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-xs text-slate-200">
+          {release.tag_name}
+        </span>
+        <span>{fmt(t.download.publishedOn, { date: formatDate(release.published_at, lang) })}</span>
+        <a
+          href={release.html_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-sky-300 hover:text-sky-200"
+        >
+          {t.download.releaseNotes}
+          <ArrowUpRight className="size-3.5" />
+        </a>
+      </div>
+
+      {recommended && (
+        <Reveal className="pt-6">
+          <Recommended build={recommended} />
+        </Reveal>
+      )}
+
+      <div className="grid gap-4 pt-2 md:grid-cols-3">
+        {PLATFORMS.map((platform, index) => (
+          <Reveal key={platform} delay={index * 0.06}>
+            <PlatformCard
+              platform={platform}
+              builds={builds.filter((build) => build.platform === platform)}
+            />
+          </Reveal>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Notice({
+  icon,
+  title,
+  desc,
+  cta
+}: {
+  icon: ReactNode
+  title?: string
+  desc: string
+  cta?: boolean
+}) {
+  const { t } = useLanguage()
+  return (
+    <div className="mx-auto flex max-w-2xl flex-col items-center rounded-3xl border border-white/[0.07] bg-white/[0.02] px-6 py-12 text-center sm:px-12">
+      <span className="flex size-12 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-400/10 text-sky-300">
+        {icon}
+      </span>
+      {title && <h3 className="mt-6 text-xl font-semibold text-white">{title}</h3>}
+      <p className="mt-3 text-balance text-sm leading-relaxed text-slate-400">{desc}</p>
+      {cta && (
+        <a
+          href={REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-8 inline-flex h-11 items-center gap-2 rounded-full bg-white px-6 text-sm font-semibold text-ink-950 transition-colors hover:bg-sky-50"
+        >
+          <Github className="size-4" />
+          {t.download.empty.cta}
+        </a>
+      )}
+      <div className="mt-8 flex items-center gap-4 text-slate-500">
+        {PLATFORMS.map((platform) => (
+          <OsIcon key={platform} platform={platform} className="size-4" />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export function Download() {
   const { t } = useLanguage()
-  const reduceMotion = useReducedMotion()
-  const [assets, setAssets] = useState<Asset[]>([])
-  const [loading, setLoading] = useState(true)
-  const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [activeModal, setActiveModal] = useState<'macos' | 'linux' | null>(null)
-
-  useEffect(() => {
-    fetch('/api/v1/releases/latest')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && Array.isArray(data.assets)) {
-          setAssets(data.assets)
-        }
-      })
-      .catch((e) => console.error('Error fetching release assets for download', e))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const getDownloadUrl = (type: 'win' | 'mac-arm' | 'mac-x64' | 'linux-deb' | 'linux-appimage') => {
-    let match = ''
-    if (type === 'win') match = '-x64-Setup.exe'
-    if (type === 'mac-arm') match = '-arm64.dmg'
-    if (type === 'mac-x64') match = '-x64.dmg'
-    if (type === 'linux-deb') match = '-amd64.deb'
-    if (type === 'linux-appimage') match = '-x86_64.AppImage'
-
-    const asset = assets.find((a) => a.name.toLowerCase().includes(match.toLowerCase()))
-    return asset ? asset.browser_download_url : 'https://github.com/lantongxue/winssh/releases'
-  }
-
-  const executeDownload = (url: string, id: string) => {
-    setDownloadingId(id)
-    setTimeout(() => {
-      window.location.href = url
-      setTimeout(() => {
-        setDownloadingId(null)
-        setActiveModal(null)
-      }, 500)
-    }, 600)
-  }
-
-  const platforms = [
-    {
-      id: 'macos',
-      name: t.download.platforms.macos.name,
-      icon: <Apple className="w-8 h-8 text-neutral-200" />,
-      desc: t.download.platforms.macos.desc,
-      arch: t.download.platforms.macos.arch,
-      btnText: t.download.platforms.macos.btn,
-      badge: 'Apple Silicon & Intel',
-      onClick: () => setActiveModal('macos')
-    },
-    {
-      id: 'windows',
-      name: t.download.platforms.windows.name,
-      icon: <Monitor className="w-8 h-8 text-cyan-400" />,
-      desc: t.download.platforms.windows.desc,
-      arch: t.download.platforms.windows.arch,
-      btnText: t.download.platforms.windows.btn,
-      badge: 'DirectX 12 / DirectWrite',
-      onClick: () => executeDownload(getDownloadUrl('win'), 'win')
-    },
-    {
-      id: 'linux',
-      name: t.download.platforms.linux.name,
-      icon: <Terminal className="w-8 h-8 text-cyan-400" />,
-      desc: t.download.platforms.linux.desc,
-      arch: t.download.platforms.linux.arch,
-      btnText: t.download.platforms.linux.btn,
-      badge: 'Wayland & X11 / Vulkan',
-      onClick: () => setActiveModal('linux')
-    }
-  ]
+  const releases = useReleases()
+  const latest = releases.status === 'ready' ? latestRelease(releases.data) : null
 
   return (
-    <section id="download" className={`py-24 px-4 sm:px-6 md:px-8 relative ${activeModal ? 'z-50' : 'z-10'}`}>
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-        <div className="w-[850px] h-[350px] bg-cyan-600/10 blur-[150px] rounded-full mix-blend-screen" />
-      </div>
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-medium tracking-wide uppercase mb-4">
-            <Zap className="w-3.5 h-3.5 text-cyan-400" />
-            <span>{t.download.versionLabel}</span>
-          </div>
-          <motion.h2
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.7 }}
-            className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-4 text-white"
-          >
-            {t.download.titleLevel1} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
-              {t.download.titleLevel2}
-            </span>
-          </motion.h2>
-          <motion.p
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-neutral-400 text-base md:text-lg font-light max-w-2xl mx-auto"
-          >
-            {t.download.desc}
-          </motion.p>
-        </div>
-
-        {/* 3 Platform Cards */}
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-12">
-          {platforms.map((platform, i) => (
-            <motion.div
-              key={platform.id}
-              initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-50px' }}
-              transition={{ duration: 0.6, delay: i * 0.1 }}
-              className="group flex flex-col p-8 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all hover:-translate-y-1 relative overflow-hidden shadow-xl"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 group-hover:scale-105 transition-transform">
-                  {platform.icon}
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {platform.badge}
-                </span>
-              </div>
-
-              <h3 className="text-2xl font-display font-semibold text-white mb-2">
-                {platform.name}
-              </h3>
-              <p className="text-neutral-400 text-sm font-light mb-1">{platform.desc}</p>
-              <p className="text-neutral-500 text-xs font-mono mb-8">{platform.arch}</p>
-
-              <div className="mt-auto pt-6 border-t border-white/10">
-                <button
-                  onClick={platform.onClick}
-                  disabled={downloadingId !== null}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-cyan-400 text-black font-semibold text-sm hover:bg-cyan-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)] cursor-pointer"
-                >
-                  {downloadingId === platform.id || (downloadingId === 'win' && platform.id === 'windows') ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <DownloadIcon className="w-4 h-4" />
-                  )}
-                  {platform.btnText}
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Security & Checksums footer */}
-        <div className="max-w-3xl mx-auto p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-400 text-center sm:text-left">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>100% Free & Open Source · No Telemetry Tracking · MIT Licensed</span>
-          </div>
-          <a
-            href="https://github.com/lantongxue/winssh/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1 font-sans"
-          >
-            <span>SHA-256 Checksums on GitHub</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
-      </div>
-
-      {/* Modal Selection for macOS / Linux */}
-      <AnimatePresence>
-        {activeModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setActiveModal(null)}
-              className="absolute inset-0 bg-black/75 backdrop-blur-md"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-neutral-900 border border-white/15 rounded-3xl p-6 shadow-2xl overflow-hidden"
-            >
-              <button
-                onClick={() => setActiveModal(null)}
-                className="absolute top-4 right-4 p-2 text-neutral-400 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+    <section id="download" className="relative py-28 sm:py-36">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute left-1/2 top-24 h-[30rem] w-[60rem] -translate-x-1/2 rounded-full bg-[radial-gradient(closest-side,rgba(59,130,246,0.14),transparent)]"
+      />
+      <div className="relative mx-auto max-w-6xl px-5 sm:px-8">
+        <SectionHeading
+          eyebrow={t.download.eyebrow}
+          title={t.download.title}
+          desc={t.download.desc}
+        />
+        <div className="mt-14">
+          {releases.status === 'loading' && (
+            <Notice icon={<Loader2 className="size-5 animate-spin" />} desc={t.download.loading} />
+          )}
+          {releases.status === 'error' && (
+            <div className="text-center">
+              <p className="text-sm text-slate-400">{t.download.error}</p>
+              <a
+                href={RELEASES_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 inline-flex h-11 items-center gap-2 rounded-full border border-white/12 px-6 text-sm text-slate-200 hover:bg-white/[0.06]"
               >
-                <X className="w-5 h-5" />
-              </button>
-
-              <h3 className="text-xl font-semibold text-white mb-2 font-display">
-                {activeModal === 'macos' ? t.download.modalMacTitle : t.download.modalLinuxTitle}
-              </h3>
-              <p className="text-xs text-neutral-400 mb-6">
-                {activeModal === 'macos'
-                  ? 'Select your Mac processor architecture for optimal performance.'
-                  : 'Choose the distribution package format matching your Linux setup.'}
-              </p>
-
-              <div className="flex flex-col gap-3">
-                {activeModal === 'macos' ? (
-                  <>
-                    <button
-                      onClick={() => executeDownload(getDownloadUrl('mac-arm'), 'mac-arm')}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/40 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        {downloadingId === 'mac-arm' ? (
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        ) : (
-                          <Cpu className="w-6 h-6" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">
-                          {t.download.modalMacAppleSilicon}
-                        </div>
-                        <div className="text-neutral-500 text-xs">
-                          {t.download.modalMacAppleSiliconDesc}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() => executeDownload(getDownloadUrl('mac-x64'), 'mac-x64')}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/40 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        {downloadingId === 'mac-x64' ? (
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        ) : (
-                          <Command className="w-6 h-6" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">
-                          {t.download.modalMacIntel}
-                        </div>
-                        <div className="text-neutral-500 text-xs">
-                          {t.download.modalMacIntelDesc}
-                        </div>
-                      </div>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => executeDownload(getDownloadUrl('linux-deb'), 'linux-deb')}
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/40 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        {downloadingId === 'linux-deb' ? (
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        ) : (
-                          <Package className="w-6 h-6" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">
-                          {t.download.modalLinuxDeb}
-                        </div>
-                        <div className="text-neutral-500 text-xs">
-                          {t.download.modalLinuxDebDesc}
-                        </div>
-                      </div>
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        executeDownload(getDownloadUrl('linux-appimage'), 'linux-appimage')
-                      }
-                      disabled={downloadingId !== null}
-                      className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-cyan-500/40 transition-all text-left group disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform">
-                        {downloadingId === 'linux-appimage' ? (
-                          <Loader2 className="w-6 h-6 animate-spin" />
-                        ) : (
-                          <Terminal className="w-6 h-6" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-white font-medium mb-1">
-                          {t.download.modalLinuxAppImage}
-                        </div>
-                        <div className="text-neutral-500 text-xs">
-                          {t.download.modalLinuxAppImageDesc}
-                        </div>
-                      </div>
-                    </button>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                <Github className="size-4" />
+                GitHub Releases
+              </a>
+            </div>
+          )}
+          {releases.status === 'ready' &&
+            (latest ? (
+              <ReleaseDownloads release={latest} />
+            ) : (
+              <Notice
+                icon={<Rocket className="size-5" />}
+                title={t.download.empty.title}
+                desc={t.download.empty.desc}
+                cta
+              />
+            ))}
+        </div>
+      </div>
     </section>
   )
 }

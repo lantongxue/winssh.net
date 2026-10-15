@@ -1,37 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WinSSH Pro - 120+ FPS 原生高性能 SSH 客户端与云原生运维智能工作台 | The High-Performance Native Rust SSH Client</title>
+    <title>WinSSH Pro — 集大成者 · 原生跨平台 SSH 与远程连接工作台</title>
     <meta
       name="description"
-      content="WinSSH Pro 是基于 100% 纯 Rust、GPUI 与 Alacritty 打造的下一代原生高性能跨平台 SSH 客户端。拥有 120+ FPS 极速硬件渲染、8.3ms 单帧预算、内置 DevOps AI Copilot、实时主机全景监控与双向联动 SFTP。告别 Electron 臃肿时代！"
+      content="WinSSH Pro 用 Rust 打造：SSH、SFTP、FTP、S3、WebDAV、RDP、VNC、Telnet、串口与 EasyTier 组网，加上资源监控与 AI 助手，集于一个原生应用。120 FPS GPU 渲染，免费开源，支持 Windows、macOS 与 Linux。"
     />
     <meta
       name="keywords"
-      content="WinSSH Pro, WinSSH, Rust, GPUI, SSH Client, AI Copilot, DevOps, Alacritty, 120 FPS, SFTP, WebDAV, Terminal, Cross-platform, macOS Apple Silicon, Windows, Linux, 终端工具, 运维工作台"
+      content="WinSSH Pro, WinSSH, SSH 客户端, SFTP, RDP, VNC, Telnet, 串口, S3, WebDAV, EasyTier, 端口转发, AI 助手, Rust, GPUI, SSH Client, Remote Desktop, Windows, macOS, Linux"
     />
-    <meta name="author" content="WinSSH Pro Team" />
-    <meta property="og:title" content="WinSSH Pro - 120+ FPS 原生高性能 SSH 客户端与云原生运维智能工作台" />
+    <meta name="theme-color" content="#030712" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="canonical" href="https://winssh.net/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://winssh.net/" />
+    <meta property="og:site_name" content="WinSSH Pro" />
+    <meta property="og:title" content="WinSSH Pro — 集大成者" />
     <meta
       property="og:description"
-      content="100% Native Rust + GPUI 120+ FPS 极速渲染，内置 DevOps AI Copilot、全景主机监控与双向联动 SFTP。纯原生桌面端体验，内存占用减 85%。"
+      content="SSH、SFTP、RDP、VNC、串口、对象存储、组网与 AI 助手，集于一个原生应用。Rust 打造，120 FPS 渲染。"
     />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://winssh.net" />
+    <meta property="og:image" content="https://winssh.net/screenshots/overview-zh.webp" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#030303" />
+
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preload" as="image" href="/screenshots/overview-zh.webp" type="image/webp" />
   </head>
 
-  <body class="bg-[#030303] text-white selection:bg-cyan-500/20 selection:text-white">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

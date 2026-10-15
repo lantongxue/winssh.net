@@ -1,39 +1,39 @@
-import { motion, AnimatePresence, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
+import {
+  motion,
+  AnimatePresence,
+  useScroll,
+  useMotionValueEvent,
+  useReducedMotion
+} from 'motion/react'
 import { ArrowUp } from 'lucide-react'
 import { useState } from 'react'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export function ScrollToTop() {
+  const { t } = useLanguage()
   const [isVisible, setIsVisible] = useState(false)
   const reduceMotion = useReducedMotion()
 
   const { scrollY } = useScroll()
   useMotionValueEvent(scrollY, 'change', (latest) => {
-    const shouldShow = latest > 300
+    const shouldShow = latest > 900
     setIsVisible((prev) => (prev !== shouldShow ? shouldShow : prev))
   })
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.button
-          initial={reduceMotion ? false : { opacity: 0, scale: 0.8, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8, y: 15 }}
-          whileHover={reduceMotion ? undefined : { scale: 1.08 }}
-          whileTap={reduceMotion ? undefined : { scale: 0.95 }}
+          type="button"
+          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 p-3.5 rounded-full bg-cyan-400 text-black shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all focus:outline-none flex items-center justify-center cursor-pointer"
-          aria-label="Scroll to top"
+          onClick={() => window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })}
+          className="fixed bottom-6 right-6 z-40 flex size-11 items-center justify-center rounded-full border border-white/10 bg-ink-900/80 text-slate-300 shadow-2xl backdrop-blur-xl transition-colors hover:border-white/20 hover:text-white"
+          aria-label={t.footer.backToTop}
         >
-          <ArrowUp className="w-4 h-4 stroke-[2.5]" />
+          <ArrowUp className="size-4" />
         </motion.button>
       )}
     </AnimatePresence>

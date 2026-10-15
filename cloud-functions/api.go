@@ -14,7 +14,7 @@ import (
 var (
 	GITHUB_API_TOKEN string = os.Getenv("GITHUB_API_TOKEN")
 	GITHUB_OWNER     string = "lantongxue"
-	GITHUB_REPO      string = "winssh"
+	GITHUB_REPO      string = "winssh-pro"
 )
 
 type SimpleCache struct {

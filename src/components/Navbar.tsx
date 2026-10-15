@@ -1,108 +1,130 @@
-import { motion, useScroll, useMotionValueEvent, useReducedMotion } from 'motion/react'
-import { Github, Star, Zap } from 'lucide-react'
+import {
+  AnimatePresence,
+  motion,
+  useMotionValueEvent,
+  useReducedMotion,
+  useScroll
+} from 'motion/react'
+import { Github, Menu, Star, X } from 'lucide-react'
+import { useState } from 'react'
+import icon from '../assets/brand/icon-256.webp'
 import { useLanguage } from '../i18n/LanguageContext'
+import { REPO_URL, useStars } from '../lib/github'
 import { LanguageToggle } from './LanguageToggle'
-import { useEffect, useState } from 'react'
 
 export function Navbar() {
   const { t } = useLanguage()
-  const [stars, setStars] = useState<number | null>(null)
-  const [scrolled, setScrolled] = useState(false)
+  const stars = useStars()
   const reduceMotion = useReducedMotion()
+  const [scrolled, setScrolled] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const { scrollY } = useScroll()
   useMotionValueEvent(scrollY, 'change', (latest) => {
-    const isPast = latest > 20
-    setScrolled((prev) => (prev !== isPast ? isPast : prev))
+    const past = latest > 24
+    setScrolled((prev) => (prev !== past ? past : prev))
   })
 
-  useEffect(() => {
-    fetch('/api/v1/repo')
-      .then((res) => res.json())
-      .then((data) => {
-        if (typeof data.stargazers_count === 'number') {
-          setStars(data.stargazers_count)
-        }
-      })
-      .catch((e) => console.log('Error fetching stars', e))
-  }, [])
+  const links = [
+    { href: '#connections', label: t.nav.connections },
+    { href: '#performance', label: t.nav.performance },
+    { href: '#features', label: t.nav.features },
+    { href: '#download', label: t.nav.download },
+    { href: '#changelog', label: t.nav.changelog }
+  ]
+
+  const solid = scrolled || open
 
   return (
-    <motion.nav
-      initial={reduceMotion ? false : { y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-8 transition-all duration-300 ${
-        scrolled
-          ? 'bg-black/85 backdrop-blur-xl border-b border-white/10 shadow-2xl py-3.5'
-          : 'bg-transparent py-5'
+    <header
+      className={`fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-300 ${
+        solid
+          ? 'border-b border-white/[0.06] bg-ink-950/75 backdrop-blur-xl backdrop-saturate-150'
+          : 'border-b border-transparent'
       }`}
     >
-      {/* Brand Logo & Name */}
-      <a href="#" className="flex items-center gap-2.5 group">
-        <div className="relative">
-          <img src="/logo.png" alt="WinSSH Pro Logo" className="w-8 h-8 object-contain transition-transform group-hover:scale-105" />
-          <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 ring-2 ring-black" />
-        </div>
-        <div className="flex items-center gap-1.5 font-display">
-          <span className="font-bold text-xl tracking-tight text-white">WinSSH</span>
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold uppercase rounded bg-gradient-to-r from-blue-500 to-cyan-400 text-black shadow-[0_0_12px_rgba(6,182,212,0.6)]">
-            PRO
-          </span>
-        </div>
-      </a>
+      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-5 sm:px-8">
+        <a href="#top" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
+          <img src={icon} alt="" width={28} height={28} className="size-7 rounded-[7px]" />
+          <span className="text-[15px] font-semibold tracking-tight text-white">WinSSH Pro</span>
+        </a>
 
-      {/* Nav Navigation Links */}
-      <div className="hidden lg:flex items-center gap-7 text-xs font-medium text-neutral-400">
-        <a href="#showcase" className="hover:text-cyan-400 transition-colors flex items-center gap-1">
-          <Zap className="w-3.5 h-3.5 text-cyan-400" />
-          {t.nav.showcase}
-        </a>
-        <a href="#benchmarks" className="hover:text-white transition-colors">
-          {t.nav.performance}
-        </a>
-        <a href="#features" className="hover:text-white transition-colors">
-          {t.nav.features}
-        </a>
-        <a href="#architecture" className="hover:text-white transition-colors">
-          {t.nav.architecture}
-        </a>
-        <a href="#sync" className="hover:text-white transition-colors">
-          {t.nav.sync}
-        </a>
-        <a href="#download" className="hover:text-white transition-colors">
-          {t.nav.download}
-        </a>
-        <a href="#changelog" className="hover:text-white transition-colors">
-          {t.nav.changelog}
-        </a>
-      </div>
+        <div className="hidden items-center gap-8 text-sm text-slate-400 lg:flex">
+          {links.map((link) => (
+            <a key={link.href} href={link.href} className="transition-colors hover:text-white">
+              {link.label}
+            </a>
+          ))}
+        </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-3">
-        <LanguageToggle />
-        <a
-          href="https://github.com/lantongxue/winssh"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3.5 py-1.5 bg-white/10 hover:bg-white/20 border border-white/15 text-white font-medium text-xs rounded-full transition-all"
-        >
-          <Github className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">GitHub</span>
-          {stars !== null && (
-            <div className="flex items-center gap-1 sm:ml-1 sm:pl-2 sm:border-l border-white/20 text-yellow-400">
-              <Star className="w-3 h-3 fill-yellow-400" />
-              <span>{stars}</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <LanguageToggle />
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden h-8 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 text-xs font-medium text-slate-200 transition-colors hover:border-white/20 hover:bg-white/[0.08] sm:flex"
+          >
+            <Github className="size-3.5" />
+            <span>{t.nav.github}</span>
+            {stars.status === 'ready' && (
+              <span className="flex items-center gap-1 border-l border-white/10 pl-2 text-slate-300">
+                <Star className="size-3 fill-amber-300 text-amber-300" />
+                {stars.data.toLocaleString()}
+              </span>
+            )}
+          </a>
+          <a
+            href="#download"
+            className="hidden h-8 items-center rounded-full bg-white px-4 text-xs font-semibold text-ink-950 transition-colors hover:bg-sky-100 sm:flex"
+          >
+            {t.nav.downloadCta}
+          </a>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-label={t.nav.menu}
+            className="flex size-9 items-center justify-center rounded-full text-slate-300 hover:bg-white/[0.06] lg:hidden"
+          >
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
+        </div>
+      </nav>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={reduceMotion ? false : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden border-t border-white/[0.06] lg:hidden"
+          >
+            <div className="flex flex-col px-5 py-3 sm:px-8">
+              {links.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="py-3 text-base text-slate-300 hover:text-white"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 py-3 text-base text-slate-300 hover:text-white"
+              >
+                <Github className="size-4" />
+                {t.nav.github}
+              </a>
             </div>
-          )}
-        </a>
-        <a
-          href="#download"
-          className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-semibold text-xs rounded-full shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all"
-        >
-          <span>{t.nav.download}</span>
-        </a>
-      </div>
-    </motion.nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </header>
   )
 }

@@ -1,270 +1,157 @@
-import { motion, useReducedMotion } from 'motion/react'
+import { ArrowUpRight, ChevronDown } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { useLanguage } from '../i18n/LanguageContext'
-import { Circle, GitCommit, Loader2, ChevronDown, ChevronUp, ExternalLink, Sparkles, Zap } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
+import { RELEASES_URL, latestRelease, useReleases, type Release } from '../lib/github'
+import { Reveal, SectionHeading } from './ui'
 
-interface Release {
-  id: number
-  tag_name: string
-  name: string
-  published_at: string
-  body: string
-  prerelease: boolean
-  html_url: string
+const VISIBLE = 5
+
+// Markdown 渲染只有更新日志用得到，单独拆包，不拖慢首屏
+const Markdown = lazy(() => import('react-markdown'))
+
+// GitHub 自动生成的发行说明里是裸链接和 @用户名；不引入 GFM 插件，直接改写成 Markdown 链接
+function linkify(body: string) {
+  return body
+    .replace(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/(?:pull|issues)\/(\d+)/g, '[#$1]($&)')
+    .replace(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/compare\/(\S+)/g, '[$1]($&)')
+    .replace(/(^|\s)@([\w-]+)/g, '$1[@$2](https://github.com/$2)')
 }
 
-function ReleaseItem({
-  release,
-  index,
-  formatDate,
-  t
-}: {
-  release: Release
-  index: number
-  formatDate: (d: string) => string
-  t: any
-}) {
+function ReleaseEntry({ release, isLatest }: { release: Release; isLatest: boolean }) {
+  const { t, lang } = useLanguage()
   const [expanded, setExpanded] = useState(false)
-  const isLong = release.body && (release.body.length > 300 || release.body.split('\n').length > 5)
+  const body = release.body?.trim() ?? ''
+  const long = body.split('\n').length > 10 || body.length > 600
+  const date = release.published_at
+    ? new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }).format(new Date(release.published_at))
+    : ''
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-50px' }}
-      transition={{ duration: 0.8, delay: index * 0.1 }}
-      className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"
-    >
-      {/* Icon */}
-      <div className="flex items-center justify-center w-7 h-7 rounded-full border border-cyan-500/30 bg-[#0c0c0e] text-cyan-400 group-hover:text-white group-hover:border-cyan-400 transition-colors shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-[0_0_12px_rgba(6,182,212,0.4)] relative z-10">
-        <GitCommit className="w-3.5 h-3.5" />
+    <article className="relative grid gap-4 pb-12 pl-8 sm:grid-cols-[10rem_1fr] sm:gap-10 sm:pl-0">
+      <div className="sm:text-right">
+        <span
+          aria-hidden
+          className={`absolute left-0 top-1.5 size-2.5 rounded-full ring-4 ring-ink-950 sm:left-[calc(10rem+1.25rem-5px)] ${isLatest ? 'bg-sky-400' : 'bg-slate-600'}`}
+        />
+        <p className="font-mono text-sm text-white">{release.tag_name}</p>
+        <p className="mt-1 text-xs text-slate-500">{date}</p>
       </div>
-
-      {/* Card */}
-      <div className="w-[calc(100%-2.5rem)] md:w-[calc(50%-2.5rem)] p-6 sm:p-7 rounded-3xl bg-white/5 border border-white/10 hover:border-cyan-500/30 hover:bg-white/10 transition-all shadow-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h3 className="font-display font-semibold text-xl text-white">
-              <a
-                href={release.html_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-cyan-400 transition-colors"
-              >
-                {release.name || release.tag_name}
-              </a>
-            </h3>
-            {release.prerelease ? (
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                Pre-release
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded text-xs font-mono font-medium bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                Release
-              </span>
+      <div className="min-w-0 sm:pl-10">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-lg font-semibold text-white">{release.name || release.tag_name}</h3>
+          {isLatest && (
+            <span className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[11px] font-medium text-sky-300">
+              {t.changelog.latest}
+            </span>
+          )}
+          {release.prerelease && (
+            <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">
+              {t.changelog.prerelease}
+            </span>
+          )}
+        </div>
+        {body && (
+          <div className="relative mt-4">
+            <div
+              className={`prose-release overflow-hidden text-sm leading-relaxed text-slate-400 ${long && !expanded ? 'max-h-56' : ''}`}
+            >
+              <Suspense fallback={<p className="whitespace-pre-line">{body}</p>}>
+                <Markdown
+                  components={{
+                    a: ({ children, href }) => (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sky-300 hover:text-sky-200"
+                      >
+                        {children}
+                      </a>
+                    )
+                  }}
+                >
+                  {linkify(body)}
+                </Markdown>
+              </Suspense>
+            </div>
+            {long && !expanded && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-ink-950 to-transparent"
+              />
             )}
           </div>
-          <time className="text-xs font-mono text-neutral-400">
-            {formatDate(release.published_at)}
-          </time>
-        </div>
-
-        <div
-          className={`mt-4 break-words relative transition-all duration-300 ${!expanded && isLong ? 'max-h-[220px] overflow-hidden' : ''}`}
-          style={
-            !expanded && isLong
-              ? {
-                  WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
-                  maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)'
-                }
-              : {}
-          }
-        >
-          <ReactMarkdown
-            components={{
-              ul: ({ node, ...props }) => <ul className="space-y-2.5 my-3" {...props} />,
-              li: ({ node, ...props }) => (
-                <li className="flex items-start gap-2.5 text-neutral-300 text-xs sm:text-sm font-light">
-                  <Circle className="w-1.5 h-1.5 mt-1.5 shrink-0 text-cyan-400 fill-cyan-400" />
-                  <span className="leading-relaxed flex-1" {...props} />
-                </li>
-              ),
-              p: ({ node, ...props }) => (
-                <p className="text-neutral-400 text-xs sm:text-sm font-light mb-2 last:mb-0" {...props} />
-              ),
-              h1: ({ node, ...props }) => (
-                <h4 className="text-white font-medium text-sm mb-2 mt-4 first:mt-0" {...props} />
-              ),
-              h2: ({ node, ...props }) => (
-                <h4 className="text-white font-medium text-sm mb-2 mt-4 first:mt-0" {...props} />
-              ),
-              h3: ({ node, ...props }) => (
-                <h4 className="text-white font-medium text-sm text-neutral-300 mb-2 mt-4 first:mt-0" {...props} />
-              ),
-              a: ({ node, ...props }) => (
-                <a
-                  className="text-cyan-400 hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  {...props}
-                />
-              ),
-              code: ({ node, ...props }) => (
-                <code
-                  className="bg-white/10 px-1 py-0.5 rounded text-xs font-mono text-cyan-300"
-                  {...props}
-                />
-              )
-            }}
-          >
-            {release.body}
-          </ReactMarkdown>
-        </div>
-
-        {isLong && (
+        )}
+        {long && (
           <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-4 text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-slate-300 hover:text-white"
           >
-            {expanded ? (
-              <>
-                <ChevronUp className="w-3.5 h-3.5" /> {t.changelogSection.showLess || 'Show less'}
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-3.5 h-3.5" /> {t.changelogSection.showMore || 'Read full notes'}
-              </>
-            )}
+            {expanded ? t.changelog.collapse : t.changelog.expand}
+            <ChevronDown
+              className={`size-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            />
           </button>
         )}
       </div>
-    </motion.div>
+    </article>
   )
 }
 
 export function Changelog() {
-  const { t, lang } = useLanguage()
-  const reduceMotion = useReducedMotion()
-  const [releases, setReleases] = useState<Release[]>([])
-  const [loading, setLoading] = useState(true)
-  const [visibleCount, setVisibleCount] = useState(4)
-
-  useEffect(() => {
-    fetch('/api/v1/releases')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setReleases(data)
-        }
-      })
-      .catch((e) => console.log('Notice: fallback to local changelog dataset', e))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      if (isNaN(date.getTime())) return dateString
-      return new Intl.DateTimeFormat(lang === 'zh' ? 'zh-CN' : 'en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      }).format(date)
-    } catch {
-      return dateString
-    }
-  }
-
-  // Fallback to static rich translation history if API returns empty
-  const displayItems =
-    releases.length > 0
-      ? releases
-      : t.changelogSection.versions.map((v: any, idx: number) => ({
-          id: idx,
-          tag_name: v.version,
-          name: `${v.version} - ${v.badge}`,
-          published_at: v.date,
-          body: v.changes.join('\n\n'),
-          prerelease: false,
-          html_url: 'https://github.com/lantongxue/winssh/releases'
-        }))
+  const { t } = useLanguage()
+  const releases = useReleases()
+  const list = releases.status === 'ready' ? releases.data.slice(0, VISIBLE) : []
+  const latest = releases.status === 'ready' ? latestRelease(releases.data) : null
 
   return (
-    <section id="changelog" className="py-24 px-4 sm:px-6 md:px-8 relative z-10 border-t border-white/5">
-      <div className="max-w-4xl mx-auto relative z-10">
-        <div className="text-center mb-16">
-          <motion.h2
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.7 }}
-            className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white mb-4"
-          >
-            {t.changelogSection.titleLevel1}{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
-              {t.changelogSection.titleLevel2}
-            </span>
-          </motion.h2>
-          <motion.p
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-100px' }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="text-neutral-400 text-base md:text-lg font-light max-w-xl mx-auto"
-          >
-            {t.changelogSection.desc}
-          </motion.p>
-        </div>
+    <section id="changelog" className="relative py-28 sm:py-36">
+      <div className="mx-auto max-w-4xl px-5 sm:px-8">
+        <SectionHeading
+          eyebrow={t.changelog.eyebrow}
+          title={t.changelog.title}
+          desc={t.changelog.desc}
+        />
 
-        <div className="space-y-12 relative before:absolute before:inset-0 before:ml-3 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-cyan-500/30 before:to-transparent">
-          {loading && releases.length === 0 ? (
-            <div className="flex justify-center items-center py-20 text-neutral-500 relative z-10">
-              <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+        <Reveal className="mt-16">
+          {releases.status === 'ready' && list.length > 0 ? (
+            <div className="relative">
+              <span
+                aria-hidden
+                className="absolute bottom-12 left-[4px] top-2 w-px bg-white/[0.08] sm:left-[calc(10rem+1.25rem)]"
+              />
+              {list.map((release) => (
+                <ReleaseEntry
+                  key={release.tag_name}
+                  release={release}
+                  isLatest={release === latest}
+                />
+              ))}
             </div>
           ) : (
-            displayItems
-              .slice(0, visibleCount)
-              .map((release, i) => (
-                <ReleaseItem
-                  key={release.id}
-                  release={release}
-                  index={i}
-                  formatDate={formatDate}
-                  t={t}
-                />
-              ))
+            releases.status !== 'loading' && (
+              <p className="text-center text-sm text-slate-500">
+                {releases.status === 'error' ? t.changelog.error : t.changelog.empty}
+              </p>
+            )
           )}
-        </div>
-
-        {displayItems.length > visibleCount && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="mt-16 flex justify-center relative z-10"
-          >
-            <button
-              onClick={() => setVisibleCount((prev) => prev + 3)}
-              className="px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-mono transition-colors flex items-center gap-2"
+          <div className="mt-4 text-center">
+            <a
+              href={RELEASES_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-slate-300 hover:text-white"
             >
-              <ChevronDown className="w-4 h-4" />
-              {t.changelogSection.loadMore || 'Load more releases'}
-            </button>
-          </motion.div>
-        )}
-
-        <div className="mt-8 flex justify-center">
-          <a
-            href="https://github.com/lantongxue/winssh/releases"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors"
-          >
-            <span>{t.changelogSection.viewAllOnGithub}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
-        </div>
+              {t.changelog.viewAll}
+              <ArrowUpRight className="size-4" />
+            </a>
+          </div>
+        </Reveal>
       </div>
     </section>
   )

@@ -1,265 +1,112 @@
-import { motion, useReducedMotion } from 'motion/react'
-import {
-  Zap,
-  Sparkles,
-  Activity,
-  FolderSync,
-  ShieldCheck,
-  Network,
-  Cpu,
-  Terminal,
-  Lock,
-  ArrowRight
-} from 'lucide-react'
+import { Check } from 'lucide-react'
+import type { ComponentType } from 'react'
+import { CHAPTERS, type ChapterKey } from '../content/chapters'
+import { screenshots, type Crop, type Shot } from '../content/screenshots'
 import { useLanguage } from '../i18n/LanguageContext'
+import { AssistantMock } from './mocks/AssistantMock'
+import { DesktopMock } from './mocks/DesktopMock'
+import { FilesMock } from './mocks/FilesMock'
+import { MeshMock } from './mocks/MeshMock'
+import { TerminalMock } from './mocks/TerminalMock'
+import { Reveal, SectionHeading } from './ui'
+
+// 没有登记实机截图的章节，用代码绘制的界面示意图顶上
+const MOCKS: Partial<Record<ChapterKey, ComponentType>> = {
+  terminal: TerminalMock,
+  files: FilesMock,
+  desktop: DesktopMock,
+  assistant: AssistantMock,
+  network: MeshMock
+}
+
+function Screenshot({ shot, alt }: { shot: Shot & { crop?: Crop }; alt: string }) {
+  const crop = shot.crop ?? { x: 0, y: 0, w: 1, h: 1 }
+  const ratio = (crop.w * shot.width) / (crop.h * shot.height)
+  return (
+    <div
+      className="relative mx-auto overflow-hidden rounded-xl border border-white/10 shadow-[0_30px_80px_-20px_rgba(2,6,23,0.9)]"
+      // 高度上限 36rem，按比例反推宽度，竖长的取景框也不会撑得过高
+      style={{ aspectRatio: ratio, width: `min(100%, ${36 * ratio}rem)` }}
+    >
+      <img
+        src={shot.src}
+        alt={alt}
+        loading="lazy"
+        width={shot.width}
+        height={shot.height}
+        className="absolute max-w-none"
+        style={{
+          width: `${100 / crop.w}%`,
+          left: `${(-crop.x / crop.w) * 100}%`,
+          top: `${(-crop.y / crop.h) * 100}%`
+        }}
+      />
+    </div>
+  )
+}
 
 export function Features() {
-  const { t } = useLanguage()
-  const reduceMotion = useReducedMotion()
-  const items = t.features.items
+  const { t, lang } = useLanguage()
 
   return (
-    <section id="features" className="py-24 px-4 sm:px-6 md:px-8 relative z-10">
-      <div className="max-w-7xl mx-auto">
-        {/* Section Header (Eyebrow removed per taste skill restraint rule) */}
-        <div className="text-center mb-16">
-          <motion.h2
-            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.7 }}
-            className="font-display text-3xl sm:text-5xl md:text-6xl font-bold tracking-tight text-white"
-          >
-            {t.features.titleLevel1} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-sky-400">
-              {t.features.titleLevel2}
-            </span>
-          </motion.h2>
-          <p className="text-neutral-400 text-base md:text-lg font-light max-w-2xl mx-auto mt-4">
-            {t.features.desc}
-          </p>
-        </div>
+    <section id="features" className="relative py-28 sm:py-36">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <SectionHeading
+          eyebrow={t.features.eyebrow}
+          title={t.features.title}
+          desc={t.features.desc}
+        />
 
-        {/* Asymmetric Bento Grid (Strict cell count: exactly 6 items in 6 rhythmic slots) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-5 sm:gap-6">
-          {/* Bento Cell 0 (Hero Tile - 120 FPS GPUI: 8 Columns) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6 }}
-            className="lg:col-span-8 p-7 sm:p-9 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
-          >
-            <div className="absolute top-0 right-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-cyan-500/15 transition-all" />
+        <div className="mt-24 space-y-28 sm:mt-32 sm:space-y-40">
+          {CHAPTERS.map(({ key, Icon }, index) => {
+            const chapter = t.features.chapters[key]
+            const shot = screenshots.chapters[key]?.[lang]
+            const Mock = MOCKS[key]
+            const flipped = index % 2 === 1
+            return (
+              <article key={key} className="grid items-center gap-12 lg:grid-cols-12 lg:gap-16">
+                <Reveal className={`lg:col-span-5 ${flipped ? 'lg:order-2' : ''}`}>
+                  <div className="flex items-center gap-2.5 text-sm font-medium text-sky-300">
+                    <span className="flex size-8 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10">
+                      <Icon className="size-4" strokeWidth={1.75} />
+                    </span>
+                    {chapter.tag}
+                  </div>
+                  <h3 className="mt-6 text-balance text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
+                    {chapter.title}
+                  </h3>
+                  <p className="mt-5 text-pretty text-base leading-relaxed text-slate-400">
+                    {chapter.desc}
+                  </p>
+                  <ul className="mt-8 space-y-3.5">
+                    {chapter.points.map((point) => (
+                      <li
+                        key={point}
+                        className="flex gap-3 text-[15px] leading-relaxed text-slate-300"
+                      >
+                        <Check
+                          className="mt-[0.3em] size-4 shrink-0 text-sky-400"
+                          strokeWidth={2.25}
+                        />
+                        <span className="text-pretty">{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Reveal>
 
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <Zap className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/25">
-                  {items[0].tag}
-                </span>
-              </div>
-
-              <h3 className="text-2xl font-display font-semibold mb-3 text-white">
-                {items[0].title}
-              </h3>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm max-w-2xl mb-8">
-                {items[0].desc}
-              </p>
-            </div>
-
-            {/* Visual Micro-Widget: Frame Budget Timeline */}
-            <div className="relative z-10 p-4 rounded-2xl bg-black/40 border border-white/5 font-mono text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                <span className="text-white font-semibold">8.33ms Budget</span>
-                <span className="text-neutral-500">·</span>
-                <span className="text-cyan-400 font-bold">120.0 FPS Target</span>
-              </div>
-              <div className="text-[11px] text-neutral-400">
-                Metal / DirectX 12 Direct Pipeline
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Bento Cell 1 (DevOps AI Copilot: 4 Columns) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="lg:col-span-4 p-7 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
-          >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {items[1].tag}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-display font-semibold mb-3 text-white">
-                {items[1].title}
-              </h3>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm mb-6">
-                {items[1].desc}
-              </p>
-            </div>
-
-            {/* Visual Micro-Widget: Prompt Execution Pill */}
-            <div className="relative z-10 p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-[11px] text-cyan-300">
-              <div className="flex items-center justify-between text-neutral-500 text-[10px] mb-1">
-                <span>VERIFIED PROMPT</span>
-                <span className="text-cyan-400">Ready</span>
-              </div>
-              <div className="truncate text-neutral-200">$ ps -eo pid,%cpu,cmd | head -n 5</div>
-            </div>
-          </motion.div>
-
-          {/* Bento Cell 2 (Telemetry Hub: 4 Columns) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="lg:col-span-4 p-7 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {items[2].tag}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-display font-semibold mb-3 text-white">
-                {items[2].title}
-              </h3>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm mb-6">
-                {items[2].desc}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-xs flex items-center justify-between text-neutral-400">
-              <span>CPU 3.4%</span>
-              <span className="text-neutral-600">·</span>
-              <span className="text-cyan-400 font-semibold">RAM 42MB</span>
-              <span className="text-neutral-600">·</span>
-              <span>NVMe 1.2GB/s</span>
-            </div>
-          </motion.div>
-
-          {/* Bento Cell 3 (Bi-Directional SFTP: 4 Columns) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="lg:col-span-4 p-7 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <FolderSync className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {items[3].tag}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-display font-semibold mb-3 text-white">
-                {items[3].title}
-              </h3>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm mb-6">
-                {items[3].desc}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-xs flex items-center justify-between text-neutral-300">
-              <span className="truncate max-w-[140px] text-neutral-400">cd /var/log</span>
-              <ArrowRight className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              <span className="text-cyan-300 font-medium">Synced SFTP</span>
-            </div>
-          </motion.div>
-
-          {/* Bento Cell 4 (Zero-Knowledge Vault: 4 Columns) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.25 }}
-            className="lg:col-span-4 p-7 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {items[4].tag}
-                </span>
-              </div>
-
-              <h3 className="text-xl font-display font-semibold mb-3 text-white">
-                {items[4].title}
-              </h3>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm mb-6">
-                {items[4].desc}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-black/40 border border-white/5 font-mono text-xs flex items-center justify-between text-cyan-300">
-              <span>AES-256-GCM</span>
-              <span className="text-neutral-600">·</span>
-              <span>Ed25519 Native</span>
-              <span className="text-neutral-600">·</span>
-              <span className="text-emerald-400 font-semibold">Local Vault</span>
-            </div>
-          </motion.div>
-
-          {/* Bento Cell 5 (Snippets & Visual Tunnels: Full 12 Columns Landscape Bar) */}
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 25 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="lg:col-span-12 p-7 sm:p-8 rounded-3xl bg-[#0d0d10] border border-white/10 hover:border-cyan-500/40 transition-all group relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
-          >
-            <div className="max-w-2xl">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
-                  <Network className="w-4 h-4" />
-                </div>
-                <span className="text-[11px] font-mono font-semibold px-2.5 py-0.5 rounded-full bg-white/5 text-neutral-400 border border-white/10">
-                  {items[5].tag}
-                </span>
-                <h3 className="text-xl font-display font-semibold text-white">
-                  {items[5].title}
-                </h3>
-              </div>
-              <p className="text-neutral-400 leading-relaxed font-light text-sm">
-                {items[5].desc}
-              </p>
-            </div>
-
-            {/* Visual Tunnel Pill Indicators */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <div className="px-3.5 py-2 rounded-xl bg-black/50 border border-white/10 font-mono text-xs text-neutral-300 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span>Local :8080 &rarr; Remote :80</span>
-              </div>
-              <div className="px-3.5 py-2 rounded-xl bg-black/50 border border-white/10 font-mono text-xs text-neutral-400 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-neutral-600" />
-                <span>SOCKS5 Dynamic Proxy</span>
-              </div>
-            </div>
-          </motion.div>
+                <Reveal
+                  delay={0.1}
+                  className={`relative min-w-0 lg:col-span-7 ${flipped ? 'lg:order-1' : ''}`}
+                >
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute -inset-8 -z-10 rounded-[3rem] bg-[radial-gradient(closest-side,rgba(59,130,246,0.16),transparent)] blur-2xl"
+                  />
+                  {shot ? <Screenshot shot={shot} alt={chapter.title} /> : Mock ? <Mock /> : null}
+                </Reveal>
+              </article>
+            )
+          })}
         </div>
       </div>
     </section>
