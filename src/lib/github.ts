@@ -70,7 +70,7 @@ function useApi<T>(load: () => Promise<T>, key: string): LoadState<T> {
   return state
 }
 
-// GitHub 出错时云函数仍原样返回 200 + {"message": ...}，所以按形状而不是状态码判断
+// 云函数会透传 GitHub 的错误状态码，这里再按数据形状校验一次，防止异常响应被当成数据渲染
 function loadReleases() {
   return getJson<unknown>('/releases').then((data) => {
     if (!Array.isArray(data)) throw new Error('unexpected releases payload')

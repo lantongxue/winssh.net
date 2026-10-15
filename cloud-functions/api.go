@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -17,134 +18,117 @@ var (
 	GITHUB_REPO      string = "winssh-pro"
 )
 
-type SimpleCache struct {
-	data map[string]*SimpleCacheData
-}
+// 成功的 GitHub 响应缓存这么久；发布新版本后，官网最迟在这段时间后看到
+const cacheTTL = 12 * time.Hour
 
 type SimpleCacheData struct {
-	buff []byte
-	ttl  int
+	buff      []byte
+	expiresAt time.Time
+}
+
+// SimpleCache 会被 gin 的多个请求 goroutine 同时读写，所以要加锁
+type SimpleCache struct {
+	mu   sync.RWMutex
+	data map[string]SimpleCacheData
 }
 
 func NewCache() *SimpleCache {
 	return &SimpleCache{
-		data: make(map[string]*SimpleCacheData),
+		data: make(map[string]SimpleCacheData),
 	}
 }
 
-func (ctx *SimpleCache) SetString(key, value string, ttl int) {
-	ctx.data[key] = &SimpleCacheData{
-		buff: []byte(value),
-		ttl:  time.Now().Second() + ttl,
+func (ctx *SimpleCache) Set(key string, buff []byte, ttl time.Duration) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	ctx.data[key] = SimpleCacheData{
+		buff:      buff,
+		expiresAt: time.Now().Add(ttl),
 	}
 }
 
-func (ctx *SimpleCache) GetString(key string) string {
-	data := ctx.get(key)
-	if data == nil {
-		return ""
-	}
-	return string(data.buff)
-}
-
-func (ctx *SimpleCache) get(key string) *SimpleCacheData {
+// Get 返回缓存内容，fresh 表示是否仍在有效期内。过期的内容不删除，
+// GitHub 请求失败时还能拿它兜底。
+func (ctx *SimpleCache) Get(key string) (buff []byte, fresh bool, ok bool) {
+	ctx.mu.RLock()
+	defer ctx.mu.RUnlock()
 	val, ok := ctx.data[key]
-	if ok {
-		if val.ttl > time.Now().Second() {
-			return val
-		}
-		delete(ctx.data, key)
-		return nil
+	if !ok {
+		return nil, false, false
 	}
-	return nil
+	return val.buff, time.Now().Before(val.expiresAt), true
 }
 
 type GithubClient struct {
-	request    *resty.Request
-	baseUrl    string
-	apiKey     string
-	owner      string
-	repo       string
-	apiVersion string
-	endPoint   string
-	cache      *SimpleCache
+	client *resty.Client
+	owner  string
+	repo   string
+	cache  *SimpleCache
 }
 
-func NewGtihubClient(apiKey, owner, repo string) *GithubClient {
-	return &GithubClient{
-		apiKey:     apiKey,
-		owner:      owner,
-		repo:       repo,
-		apiVersion: "2026-03-10",
-		endPoint:   "https://api.github.com",
-		cache:      NewCache(),
+func NewGithubClient(apiKey, owner, repo string) *GithubClient {
+	// 整个进程共用一个 client，复用连接
+	client := resty.New().
+		SetBaseURL("https://api.github.com").
+		SetHeader("X-GitHub-Api-Version", "2026-03-10").
+		SetTimeout(10 * time.Second)
+	if apiKey != "" {
+		client.SetAuthToken(apiKey)
 	}
-}
-
-func (ctx *GithubClient) httpClient() *resty.Request {
-	client := resty.New()
-	return client.R().SetHeader("X-GitHub-Api-Version", ctx.apiVersion).SetAuthToken(ctx.apiKey).SetTrace(true)
+	return &GithubClient{
+		client: client,
+		owner:  owner,
+		repo:   repo,
+		cache:  NewCache(),
+	}
 }
 
 func (ctx *GithubClient) api(path string) string {
-	return fmt.Sprintf("%s/repos/%s/%s%s", ctx.endPoint, ctx.owner, ctx.repo, path)
+	return fmt.Sprintf("/repos/%s/%s%s", ctx.owner, ctx.repo, path)
 }
 
-func (ctx *GithubClient) Releases() string {
-	api := "/releases"
-	s := ctx.cache.GetString(api)
-	if s == "" {
-		res, _ := ctx.httpClient().Get(ctx.api(api))
-		s = res.String()
-		ctx.cache.SetString(api, s, int(time.Hour)*12)
+// Fetch 返回仓库接口 path 的状态码和响应体，只缓存成功的响应。
+// GitHub 出错（限流、5xx、超时）时有旧数据就返回旧数据；没有旧数据就把错误原样透传，
+// 不把错误页当 200 缓存下来。
+func (ctx *GithubClient) Fetch(path string) (int, []byte) {
+	cached, fresh, ok := ctx.cache.Get(path)
+	if fresh {
+		return http.StatusOK, cached
 	}
-	return s
-}
 
-func (ctx *GithubClient) Latest() string {
-	api := "/releases/latest"
-	s := ctx.cache.GetString(api)
-	if s == "" {
-		res, _ := ctx.httpClient().Get(ctx.api(api))
-		s = res.String()
-		ctx.cache.SetString(api, s, int(time.Hour)*12)
+	res, err := ctx.client.R().Get(ctx.api(path))
+	if err == nil && res.IsStatusSuccess() {
+		body := res.Bytes()
+		ctx.cache.Set(path, body, cacheTTL)
+		return http.StatusOK, body
 	}
-	return s
-}
-
-func (ctx *GithubClient) Repo() string {
-	api := "repo"
-	s := ctx.cache.GetString("repo")
-	if s == "" {
-		res, _ := ctx.httpClient().Get(ctx.api(""))
-		s = res.String()
-		ctx.cache.SetString(api, s, int(time.Hour)*12)
+	if ok {
+		return http.StatusOK, cached
 	}
-	return s
+	if err != nil {
+		return http.StatusBadGateway, []byte(`{"message":"failed to reach GitHub"}`)
+	}
+	return res.StatusCode(), res.Bytes()
 }
 
 func main() {
 	r := gin.Default()
 
-	github := NewGtihubClient(GITHUB_API_TOKEN, GITHUB_OWNER, GITHUB_REPO)
+	github := NewGithubClient(GITHUB_API_TOKEN, GITHUB_OWNER, GITHUB_REPO)
+
+	proxy := func(path string) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			status, body := github.Fetch(path)
+			c.Data(status, "application/json; charset=utf-8", body)
+		}
+	}
 
 	// REST API v1 group
 	v1 := r.Group("/v1")
 	{
-		v1.GET("/releases", func(c *gin.Context) {
-			c.Writer.Header().Set("content-type", "application/json; charset=utf-8")
-			c.String(http.StatusOK, github.Releases())
-		})
-
-		v1.GET("/releases/latest", func(c *gin.Context) {
-			c.Writer.Header().Set("content-type", "application/json; charset=utf-8")
-			c.String(http.StatusOK, github.Latest())
-		})
-
-		v1.GET("/repo", func(c *gin.Context) {
-			c.Writer.Header().Set("content-type", "application/json; charset=utf-8")
-			c.String(http.StatusOK, github.Repo())
-		})
+		v1.GET("/releases", proxy("/releases"))
+		v1.GET("/releases/latest", proxy("/releases/latest"))
+		v1.GET("/repo", proxy(""))
 	}
 
 	r.Run(":9000")
