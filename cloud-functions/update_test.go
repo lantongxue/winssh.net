@@ -109,7 +109,7 @@ func TestClassifyAsset(t *testing.T) {
 }
 
 func TestPickAssetsFiltersByPlatformAndArch(t *testing.T) {
-	release := releaseInfo{Assets: []releaseAsset{
+	release := releaseInfo{TagName: "v0.0.6", Assets: []releaseAsset{
 		{Name: "winssh-pro-x64-0.0.6-setup.exe", Size: 1, BrowserDownloadURL: "https://x/a.exe", Digest: "sha256:abc"},
 		{Name: "winssh-pro-arm64-0.0.6-setup.exe", Size: 2, BrowserDownloadURL: "https://x/b.exe"},
 		{Name: "winssh-pro-windows-x64.tar.gz", Size: 3, BrowserDownloadURL: "https://x/c.tar.gz"},
@@ -119,7 +119,11 @@ func TestPickAssetsFiltersByPlatformAndArch(t *testing.T) {
 	if len(assets) != 2 {
 		t.Fatalf("got %d assets: %+v", len(assets), assets)
 	}
-	if assets[0].Kind != "installer" || assets[0].SHA256 != "abc" || assets[0].SignatureURL != "https://x/a.exe.minisig" {
+	// 下载地址必须是本服务的完整转发地址，不能是 GitHub 直链；
+	// 客户端拿到什么就下什么，不做拼接。
+	if assets[0].Kind != "installer" || assets[0].SHA256 != "abc" ||
+		assets[0].URL != "https://winssh.net/api/v1/update/download?tag=v0.0.6&asset=winssh-pro-x64-0.0.6-setup.exe" ||
+		assets[0].SignatureURL != "https://winssh.net/api/v1/update/download?tag=v0.0.6&asset=winssh-pro-x64-0.0.6-setup.exe.minisig" {
 		t.Fatalf("installer asset = %+v", assets[0])
 	}
 	if assets[1].Kind != "portable" {

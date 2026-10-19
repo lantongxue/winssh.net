@@ -136,8 +136,9 @@ func main() {
 		v1.GET("/releases", proxy("/releases"))
 		v1.GET("/releases/latest", proxy("/releases/latest"))
 		v1.GET("/repo", proxy(""))
-		// 客户端自动更新检查，实现见 update.go。
+		// 客户端自动更新检查与下载转发，实现见 update.go。
 		v1.GET("/update", updateHandler(github))
+		v1.GET("/update/download", updateDownloadHandler(github))
 	}
 
 	r.Run(":9000")

@@ -21,10 +21,17 @@
 //	  "release_url": "https://github.com/.../releases/tag/v0.0.6",
 //	  "assets": [
 //	    {"kind":"installer","name":"winssh-pro-x64-0.0.6-setup.exe",
-//	     "url":"https://github.com/.../download/v0.0.6/...",
-//	     "size":123,"sha256":"…","signature_url":"…setup.exe.minisig"}
+//	     "url":"https://winssh.net/api/v1/update/download?tag=v0.0.6&asset=…",
+//	     "size":123,"sha256":"…",
+//	     "signature_url":"…&asset=….minisig"}
 //	  ]
 //	}
+//
+// `url` / `signature_url` 是**完整的绝对地址**：客户端拿到什么就下什么，
+// 不做任何拼接。下载内容默认经本服务转发（见下载接口），客户端不直连
+// GitHub —— 那条域名在国内经常连不上。以后要接 CDN 或是换部署地址，只改
+// 服务端（`UPDATE_DOWNLOAD_BASE` 环境变量或 downloadURL 本身），发出去的
+// 接口响应就变成新地址，客户端不用跟着发版。
 //
 // 已经是最新版时更新检查照样返回 200（update_available=false），由客户端决定
 // 不弹窗 —— 让客户端用状态码区分"没更新"和"检查失败"。
@@ -32,9 +39,15 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"net/url"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -63,8 +76,9 @@ type releaseInfo struct {
 
 // updateAsset 是发给客户端的单个可下载文件。
 type updateAsset struct {
-	Kind         string `json:"kind"` // installer / portable / dmg / archive / deb / rpm
-	Name         string `json:"name"`
+	Kind string `json:"kind"` // installer / portable / dmg / archive / deb / rpm
+	Name string `json:"name"`
+	// 完整下载地址（见 downloadURL），客户端拿到就用。
 	URL          string `json:"url"`
 	Size         int64  `json:"size"`
 	SHA256       string `json:"sha256"`
@@ -252,6 +266,29 @@ func classifyAsset(asset releaseAsset) (kind, platform, arch string, ok bool) {
 
 // pickAssets 选出目标平台的产物。kind 交给客户端按自己的安装形态挑
 // （安装版用 installer，免安装版用 portable…），这里只负责过滤。
+// 下载地址的前缀（含版本段），默认就是公开部署的那一个。
+//
+// 接 CDN、换域名、或者把转发挪到别处时只改环境变量，接口响应里的地址
+// 跟着变 —— 客户端只认响应里的 URL，不需要跟着改。末尾的 `/` 会被去掉。
+var updateDownloadBase = strings.TrimRight(
+	envOrDefault("UPDATE_DOWNLOAD_BASE", "https://winssh.net/api/v1"),
+	"/",
+)
+
+func envOrDefault(key, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+// downloadURL 生成产物的完整下载地址。客户端拿到什么就下什么，不做拼接 ——
+// 这样换 CDN、换域名都只是服务端的事。
+func downloadURL(tag, asset string) string {
+	return updateDownloadBase + "/update/download?tag=" + url.QueryEscape(tag) +
+		"&asset=" + url.QueryEscape(asset)
+}
+
 func pickAssets(release releaseInfo, platform, arch string) []updateAsset {
 	var assets []updateAsset
 	for _, asset := range release.Assets {
@@ -263,17 +300,13 @@ func pickAssets(release releaseInfo, platform, arch string) []updateAsset {
 		if strings.HasPrefix(asset.Digest, "sha256:") {
 			sha256 = strings.TrimPrefix(asset.Digest, "sha256:")
 		}
-		signatureURL := ""
-		if len(asset.BrowserDownloadURL) > 0 {
-			signatureURL = asset.BrowserDownloadURL + ".minisig"
-		}
 		assets = append(assets, updateAsset{
 			Kind:         kind,
 			Name:         asset.Name,
-			URL:          asset.BrowserDownloadURL,
+			URL:          downloadURL(release.TagName, asset.Name),
 			Size:         asset.Size,
 			SHA256:       sha256,
-			SignatureURL: signatureURL,
+			SignatureURL: downloadURL(release.TagName, asset.Name+".minisig"),
 		})
 	}
 	return assets
@@ -334,5 +367,114 @@ func updateHandler(github *GithubClient) gin.HandlerFunc {
 			ReleaseURL:      release.HTMLURL,
 			Assets:          pickAssets(release, platform, arch),
 		})
+	}
+}
+
+// 下载接口的入参只允许仓库里真实存在的产物形态：tag 是发版 tag，文件名是
+// `[A-Za-z0-9._+-]`。上游 URL 由这两段拼进固定的
+// `github.com/<owner>/<repo>/releases/download/...`，不来自请求里的任意地址
+// —— 这个接口不是开放代理。
+var (
+	downloadTagPattern   = regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.~-]+)?$`)
+	downloadAssetPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+-]*$`)
+)
+
+// Go 标准库没有现成的“重定向过多”错误值，自己造一个给 CheckRedirect 用。
+var errTooManyRedirects = errors.New("too many redirects")
+
+// 下载重定向允许落到的域名：github.com 与 GitHub 的对象存储
+// （objects.githubusercontent.com、release-assets.githubusercontent.com…）。
+func isGithubHost(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	return host == "github.com" || host == "githubusercontent.com" ||
+		strings.HasSuffix(host, ".githubusercontent.com") ||
+		host == "github.com." || strings.HasSuffix(host, ".github.com")
+}
+
+// 下载内容经本服务转发。
+//
+// 客户端拿到的 `url` / `signature_url` 都指到这里，而不是 GitHub 的
+// `objects.githubusercontent.com`：那条域名在国内经常连不上，而更新恰恰是
+// 用户最不该失败的一步。转发不缓存正文（几十 MB，进程里留不住也不该留），
+// 只把上游的响应流原样搬给客户端；`Range` 与 `Content-Range` 透传，断点续传
+// 仍然可用。文件内容不可变（tag + 文件名唯一确定），所以让 CDN 长缓存。
+func updateDownloadHandler(github *GithubClient) gin.HandlerFunc {
+	// 不设总超时：几十 MB 在慢线路上要几分钟，总超时会掐断正常下载。只卡
+	// “上游迟迟不响应头”。
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			ResponseHeaderTimeout: 20 * time.Second,
+			IdleConnTimeout:       90 * time.Second,
+		},
+		// GitHub 会把 release 下载重定向到 objects.githubusercontent.com。
+		// 只允许落到 GitHub 自己的域名上 —— 上游地址虽然是我们拼的，重定向
+		// 那一跳仍不该把本服务变成任意地址的代理。
+		CheckRedirect: func(request *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return errTooManyRedirects
+			}
+			if !isGithubHost(request.URL.Hostname()) {
+				return errors.New("redirect to a non-GitHub host")
+			}
+			return nil
+		},
+	}
+
+	return func(c *gin.Context) {
+		tag := c.Query("tag")
+		asset := c.Query("asset")
+		if !downloadTagPattern.MatchString(tag) || !downloadAssetPattern.MatchString(asset) {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid tag or asset"})
+			return
+		}
+
+		upstream := "https://github.com/" + github.owner + "/" + github.repo +
+			"/releases/download/" + url.PathEscape(tag) + "/" + url.PathEscape(asset)
+		request, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, upstream, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to build upstream request"})
+			return
+		}
+		request.Header.Set("User-Agent", "winssh-pro-update-proxy")
+		if auth := GITHUB_API_TOKEN; auth != "" {
+			// 私有仓库才用得上；公开仓库带着也无害。
+			request.Header.Set("Authorization", "Bearer "+auth)
+		}
+		if rng := c.Request.Header.Get("Range"); rng != "" {
+			request.Header.Set("Range", rng)
+		}
+		if etag := c.Request.Header.Get("If-None-Match"); etag != "" {
+			request.Header.Set("If-None-Match", etag)
+		}
+
+		response, err := client.Do(request)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"message": "failed to reach GitHub"})
+			return
+		}
+		defer response.Body.Close()
+
+		if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
+			c.JSON(response.StatusCode, gin.H{"message": "asset is not available"})
+			return
+		}
+
+		header := c.Writer.Header()
+		header.Set("Content-Type", "application/octet-stream")
+		header.Set("Content-Disposition", "attachment; filename=\""+asset+"\"")
+		// 同一个 tag 下的文件不会变：让浏览器 / CDN 放心长缓存。
+		header.Set("Cache-Control", "public, max-age=31536000, immutable")
+		if length := response.Header.Get("Content-Length"); length != "" {
+			header.Set("Content-Length", length)
+		}
+		if rng := response.Header.Get("Content-Range"); rng != "" {
+			header.Set("Content-Range", rng)
+		}
+		c.Status(response.StatusCode)
+		if _, err := io.Copy(c.Writer, response.Body); err != nil {
+			// 头部已经发出去了，只能记日志让连接自己断。
+			c.Error(err)
+		}
 	}
 }
