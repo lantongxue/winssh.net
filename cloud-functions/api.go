@@ -19,7 +19,7 @@ var (
 )
 
 // 成功的 GitHub 响应缓存这么久；发布新版本后，官网最迟在这段时间后看到
-const cacheTTL = 12 * time.Hour
+const cacheTTL = 1 * time.Hour
 
 type SimpleCacheData struct {
 	buff      []byte
@@ -91,6 +91,13 @@ func (ctx *GithubClient) api(path string) string {
 // GitHub 出错（限流、5xx、超时）时有旧数据就返回旧数据；没有旧数据就把错误原样透传，
 // 不把错误页当 200 缓存下来。
 func (ctx *GithubClient) Fetch(path string) (int, []byte) {
+	return ctx.FetchWithTTL(path, cacheTTL)
+}
+
+// FetchWithTTL 与 Fetch 相同，但允许调用方自定缓存时长。更新检查
+// （update.go）要短得多的 TTL：发版后用户最多等这么久就能看到新版本，
+// 撤回有问题的版本也只需要等这么久。
+func (ctx *GithubClient) FetchWithTTL(path string, ttl time.Duration) (int, []byte) {
 	cached, fresh, ok := ctx.cache.Get(path)
 	if fresh {
 		return http.StatusOK, cached
@@ -99,7 +106,7 @@ func (ctx *GithubClient) Fetch(path string) (int, []byte) {
 	res, err := ctx.client.R().Get(ctx.api(path))
 	if err == nil && res.IsStatusSuccess() {
 		body := res.Bytes()
-		ctx.cache.Set(path, body, cacheTTL)
+		ctx.cache.Set(path, body, ttl)
 		return http.StatusOK, body
 	}
 	if ok {
@@ -129,6 +136,8 @@ func main() {
 		v1.GET("/releases", proxy("/releases"))
 		v1.GET("/releases/latest", proxy("/releases/latest"))
 		v1.GET("/repo", proxy(""))
+		// 客户端自动更新检查，实现见 update.go。
+		v1.GET("/update", updateHandler(github))
 	}
 
 	r.Run(":9000")

@@ -97,7 +97,7 @@ export function latestRelease(releases: Release[]) {
   return releases.find((release) => !release.prerelease) ?? releases[0] ?? null
 }
 
-const IGNORED_ASSET = /\.(sha256|sha512|sig|asc|blockmap|yml|yaml|txt|json)$/i
+const IGNORED_ASSET = /\.(sha256|sha512|sig|asc|minisig|blockmap|yml|yaml|txt|json)$/i
 
 // 产物命名见 winssh-pro 的 .github/workflows/release.yml：
 //   winssh-pro-<arch>-<ver>-setup.exe、winssh-pro-<ver>-macos-<arch>.dmg、
