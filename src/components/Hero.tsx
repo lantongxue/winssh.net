@@ -117,7 +117,7 @@ export function Hero() {
 
         <motion.div {...enter(0.32)} className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
           <a
-            href={build ? build.asset.browser_download_url : '#download'}
+            href={build ? build.url : '#download'}
             className="group inline-flex h-12 items-center gap-2.5 rounded-full bg-white px-6 text-sm font-semibold text-ink-950 shadow-[0_0_0_1px_rgba(255,255,255,0.4),0_10px_40px_-10px_rgba(56,189,248,0.7)] transition-[background-color,transform] hover:-translate-y-px hover:bg-sky-50"
           >
             {build ? (

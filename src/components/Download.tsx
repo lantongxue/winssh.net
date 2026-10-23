@@ -68,7 +68,7 @@ function Recommended({ build }: { build: Build }) {
           </div>
         </div>
         <a
-          href={build.asset.browser_download_url}
+          href={build.url}
           className="inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-full bg-white px-7 text-sm font-semibold text-ink-950 shadow-[0_10px_40px_-10px_rgba(56,189,248,0.7)] transition-[background-color,transform] hover:-translate-y-px hover:bg-sky-50"
         >
           <ArrowDownToLine className="size-4" />
@@ -108,7 +108,7 @@ function PlatformCard({ platform, builds }: { platform: Platform; builds: Build[
         {sorted.map((build) => (
           <li key={build.asset.name}>
             <a
-              href={build.asset.browser_download_url}
+              href={build.url}
               title={build.asset.name}
               className="group -mx-3 flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/[0.05]"
             >
