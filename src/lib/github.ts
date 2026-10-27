@@ -7,17 +7,11 @@ export const ISSUES_URL = `${REPO_URL}/issues`
 // 走 cloud-functions/api.go 代理并缓存的 GitHub 接口，页面不直连 api.github.com，避免触发 IP 限流
 const API_BASE = '/api/v1'
 
-// 下载走 cloud-functions/update.go 的转发接口：GitHub 的下载域名（重定向后的
-// objects.githubusercontent.com）在国内经常连不上，产物几十 MB 又没法像接口那样缓存，
-// 只能由服务端转发。相对地址与接口同源，本地开发时 vite 也会把 /api 转出去。
-export function downloadURL(tag: string, assetName: string) {
-  const query = new URLSearchParams({ tag, asset: assetName })
-  return `${API_BASE}/update/download?${query}`
-}
-
 export interface ReleaseAsset {
   name: string
   size: number
+  // 云函数已按 GITHUB_MIRROR 改写成镜像加速站地址，前端拿到就用
+  browser_download_url: string
 }
 
 export interface Release {
@@ -40,7 +34,7 @@ export interface Build {
   arch: Arch
   kind: BuildKind
   asset: ReleaseAsset
-  // 服务端转发地址，不指向 GitHub
+  // 云函数给出的镜像加速地址，不指向 GitHub 直链
   url: string
 }
 
@@ -111,7 +105,7 @@ const IGNORED_ASSET = /\.(sha256|sha512|sig|asc|minisig|blockmap|yml|yaml|txt|js
 // 产物命名见 winssh-pro 的 .github/workflows/release.yml：
 //   winssh-pro-<arch>-<ver>-setup.exe、winssh-pro-<ver>-macos-<arch>.dmg、
 //   winssh-pro-<os>-<arch>.{deb,rpm,tar.gz}
-export function classifyAsset(asset: ReleaseAsset, tag: string): Build | null {
+export function classifyAsset(asset: ReleaseAsset): Build | null {
   const name = asset.name.toLowerCase()
   if (IGNORED_ASSET.test(name)) return null
 
@@ -146,13 +140,13 @@ export function classifyAsset(asset: ReleaseAsset, tag: string): Build | null {
   if (platform === 'windows' && kind === 'archive') kind = 'portable'
 
   const arch: Arch = /arm64|aarch64/.test(name) ? 'arm64' : 'x64'
-  return { platform, arch, kind, asset, url: downloadURL(tag, asset.name) }
+  return { platform, arch, kind, asset, url: asset.browser_download_url }
 }
 
 export function buildsOf(release: Release | null) {
   if (!release) return []
   return release.assets
-    .map((asset) => classifyAsset(asset, release.tag_name))
+    .map(classifyAsset)
     .filter((build): build is Build => build !== null)
 }
 

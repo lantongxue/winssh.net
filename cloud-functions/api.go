@@ -2,6 +2,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -118,6 +120,50 @@ func (ctx *GithubClient) FetchWithTTL(path string, ttl time.Duration) (int, []by
 	return res.StatusCode(), res.Bytes()
 }
 
+// accelerateReleasePayload 把 release 数据里每个产物的 browser_download_url
+// 换成镜像加速地址。官网（src/lib/github.ts）直接拿这个字段当下载链接，所以
+// 加速站前缀只需要在服务端用 GITHUB_MIRROR 配置一次，换加速站不用重新发布
+// 前端。解析失败时原样返回，不让一次改写影响接口可用性。
+func accelerateReleasePayload(body []byte) []byte {
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber() // release / asset 的 id 是大整数，按 json.Number 原样保留
+	var payload any
+	if err := decoder.Decode(&payload); err != nil {
+		return body
+	}
+
+	rewrite := func(release map[string]any) {
+		assets, _ := release["assets"].([]any)
+		for _, item := range assets {
+			asset, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			if raw, ok := asset["browser_download_url"].(string); ok && raw != "" {
+				asset["browser_download_url"] = accelerateURL(raw)
+			}
+		}
+	}
+	switch value := payload.(type) {
+	case []any: // /releases
+		for _, item := range value {
+			if release, ok := item.(map[string]any); ok {
+				rewrite(release)
+			}
+		}
+	case map[string]any: // /releases/latest
+		rewrite(value)
+	default:
+		return body
+	}
+
+	rewritten, err := json.Marshal(payload)
+	if err != nil {
+		return body
+	}
+	return rewritten
+}
+
 func main() {
 	r := gin.Default()
 
@@ -129,16 +175,24 @@ func main() {
 			c.Data(status, "application/json; charset=utf-8", body)
 		}
 	}
+	releases := func(path string) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			status, body := github.Fetch(path)
+			if status == http.StatusOK {
+				body = accelerateReleasePayload(body)
+			}
+			c.Data(status, "application/json; charset=utf-8", body)
+		}
+	}
 
 	// REST API v1 group
 	v1 := r.Group("/v1")
 	{
-		v1.GET("/releases", proxy("/releases"))
-		v1.GET("/releases/latest", proxy("/releases/latest"))
+		v1.GET("/releases", releases("/releases"))
+		v1.GET("/releases/latest", releases("/releases/latest"))
 		v1.GET("/repo", proxy(""))
-		// 客户端自动更新检查与下载转发，实现见 update.go。
+		// 客户端自动更新检查，实现见 update.go。
 		v1.GET("/update", updateHandler(github))
-		v1.GET("/update/download", updateDownloadHandler(github))
 	}
 
 	r.Run(":9000")

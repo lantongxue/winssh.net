@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"bytes"
+	"encoding/json"
+	"testing"
+)
 
 func TestParseSemver(t *testing.T) {
 	cases := []struct {
@@ -110,23 +114,71 @@ func TestClassifyAsset(t *testing.T) {
 
 func TestPickAssetsFiltersByPlatformAndArch(t *testing.T) {
 	release := releaseInfo{TagName: "v0.0.6", Assets: []releaseAsset{
-		{Name: "winssh-pro-x64-0.0.6-setup.exe", Size: 1, BrowserDownloadURL: "https://x/a.exe", Digest: "sha256:abc"},
-		{Name: "winssh-pro-arm64-0.0.6-setup.exe", Size: 2, BrowserDownloadURL: "https://x/b.exe"},
-		{Name: "winssh-pro-windows-x64.tar.gz", Size: 3, BrowserDownloadURL: "https://x/c.tar.gz"},
-		{Name: "winssh-pro-linux-x64.deb", Size: 4, BrowserDownloadURL: "https://x/d.deb"},
+		{Name: "winssh-pro-x64-0.0.6-setup.exe", Size: 1, Digest: "sha256:abc"},
+		{Name: "winssh-pro-arm64-0.0.6-setup.exe", Size: 2},
+		{Name: "winssh-pro-windows-x64.tar.gz", Size: 3},
+		{Name: "winssh-pro-linux-x64.deb", Size: 4},
 	}}
 	assets := pickAssets(release, "windows", "x64")
 	if len(assets) != 2 {
 		t.Fatalf("got %d assets: %+v", len(assets), assets)
 	}
-	// 下载地址必须是本服务的完整转发地址，不能是 GitHub 直链；
+	// 下载地址必须是镜像加速站地址，不能是 GitHub 直链；
 	// 客户端拿到什么就下什么，不做拼接。
 	if assets[0].Kind != "installer" || assets[0].SHA256 != "abc" ||
-		assets[0].URL != "https://winssh.net/api/v1/update/download?tag=v0.0.6&asset=winssh-pro-x64-0.0.6-setup.exe" ||
-		assets[0].SignatureURL != "https://winssh.net/api/v1/update/download?tag=v0.0.6&asset=winssh-pro-x64-0.0.6-setup.exe.minisig" {
+		assets[0].URL != "https://gh-proxy.com/https://github.com/lantongxue/winssh-pro/releases/download/v0.0.6/winssh-pro-x64-0.0.6-setup.exe" ||
+		assets[0].SignatureURL != "https://gh-proxy.com/https://github.com/lantongxue/winssh-pro/releases/download/v0.0.6/winssh-pro-x64-0.0.6-setup.exe.minisig" {
 		t.Fatalf("installer asset = %+v", assets[0])
 	}
 	if assets[1].Kind != "portable" {
 		t.Fatalf("portable asset = %+v", assets[1])
+	}
+}
+
+// 加速站地址来自 GITHUB_MIRROR：换加速站或自建同用法服务时只改环境变量。
+func TestDownloadURLUsesMirrorFromEnv(t *testing.T) {
+	t.Setenv("GITHUB_MIRROR", "https://mirror.example.com/")
+	got := downloadURL("v0.0.6", "winssh-pro-x64-0.0.6-setup.exe")
+	want := "https://mirror.example.com/https://github.com/lantongxue/winssh-pro/releases/download/v0.0.6/winssh-pro-x64-0.0.6-setup.exe"
+	if got != want {
+		t.Fatalf("downloadURL = %q, want %q", got, want)
+	}
+}
+
+// 官网的下载链接取自 release 数据的 browser_download_url，云函数统一把它
+// 改写成加速地址；其它字段（尤其是大整数 id）必须原样保留。
+func TestAccelerateReleasePayload(t *testing.T) {
+	t.Setenv("GITHUB_MIRROR", "https://mirror.example.com")
+	body := []byte(`[
+		{"tag_name":"v0.0.6","id":123456789012345678,"assets":[
+			{"name":"a.exe","browser_download_url":"https://github.com/lantongxue/winssh-pro/releases/download/v0.0.6/a.exe"},
+			{"name":"SHA256SUMS.txt"}
+		]}
+	]`)
+	rewritten := accelerateReleasePayload(body)
+
+	decoder := json.NewDecoder(bytes.NewReader(rewritten))
+	decoder.UseNumber()
+	var releases []map[string]any
+	if err := decoder.Decode(&releases); err != nil {
+		t.Fatalf("decode rewritten payload: %v", err)
+	}
+	if id, ok := releases[0]["id"].(json.Number); !ok || id.String() != "123456789012345678" {
+		t.Fatalf("id was not preserved: %v", releases[0]["id"])
+	}
+	assets := releases[0]["assets"].([]any)
+	first := assets[0].(map[string]any)
+	want := "https://mirror.example.com/https://github.com/lantongxue/winssh-pro/releases/download/v0.0.6/a.exe"
+	if first["browser_download_url"] != want {
+		t.Fatalf("browser_download_url = %v, want %q", first["browser_download_url"], want)
+	}
+	if _, ok := assets[1].(map[string]any)["browser_download_url"]; ok {
+		t.Fatalf("asset without browser_download_url gained one: %v", assets[1])
+	}
+
+	// /releases/latest 返回单个对象，也要改写。
+	single := accelerateReleasePayload([]byte(`{"assets":[{"browser_download_url":"https://github.com/x/y/README.md"}]}`))
+	if !bytes.Contains(single, []byte(`"https://mirror.example.com/https://github.com/x/y/README.md"`)) {
+		t.Fatalf("single release was not rewritten: %s", single)
 	}
 }
